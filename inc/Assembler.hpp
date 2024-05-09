@@ -1,0 +1,4 @@
+/*
+Treba prvo da napravimo parser koji ce da ide liniju po liniju
+
+  */
