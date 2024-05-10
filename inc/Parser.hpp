@@ -11,7 +11,7 @@ class Parser{
   std::ifstream input;
   std::string file_name;
   static Parser instance;
-  
+  Parser(){}
 
 
   public:
