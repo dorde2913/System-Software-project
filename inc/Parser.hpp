@@ -15,7 +15,7 @@ class Parser{
 
 
   public:
-  bool end = false;
+  static bool end;
   static Parser& getInstance(){ return instance;}
   Line parseLine();
   void setFile(std::string fileName);
