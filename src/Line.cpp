@@ -28,7 +28,7 @@ bool Line::hasLabel(){
   return this->getLabel()!="";
 }
 
-std::pair<std::string,std::string> Line::getDirective(){
+std::pair<std::string,std::vector<std::string>> Line::getDirective(){
   //direktive pocinju sa ., ima samo 1 po liniji ali moze da postoji i labela uz to
   //tako da trazimo substring od tacke do blanko
   //uz direktive idu i neki parametri ili stavec, tkd mozda treba da ih podelimo
@@ -36,7 +36,8 @@ std::pair<std::string,std::string> Line::getDirective(){
   
   int len = this->text.size();
   std::string directive_name = "";
-  std::string operands = "";
+  std::vector<std::string> operands;
+
   while (index1 < len && this->text[index1]!='.')index1++;
   if (index1<len){
     //nasli smo tacku, odnosno pocetak direktive, ako nema tacke vracamo prazno
@@ -46,10 +47,14 @@ std::pair<std::string,std::string> Line::getDirective(){
     //sad i nije bitno da li je dosao do kraja, i end of line je kraj direktive
     while (index2<len && this->text[index2]==' ')index2++;  
     
+    //sada imamo ime direktive, vadimo pojedinacne operande
+
     
-    operands = this->text.substr(index2,len-index2);
+    std::string operands_string = this->text.substr(index2,len-index2);
+    operands = this->extractOperands(operands_string);
+    
   }
-  return std::pair<std::string,std::string>(directive_name,operands);
+  return std::pair<std::string,std::vector<std::string>>(directive_name,operands);
 
 }
 bool Line::hasDirective(){
@@ -92,4 +97,28 @@ void Line::cleanComments(){
   if (index<len){
     this->text = this->text.substr(0,index);
   }
+}
+
+std::vector<std::string> Line::extractOperands(std::string operand_string){
+    int index1 = 0;
+    int index2 = 0;
+    int len = operand_string.size();
+    std::vector<std::string> operands;
+    while (index2<len){
+      //std::cout<<"u while-u"<<std::endl;
+      while(operand_string[index2]!=',' && index2<len)index2++;
+      std::string operand = operand_string.substr(index1,index2-index1);
+      while (operand_string[index2] == ',' || operand_string[index2] == ' ')index2++;
+      if (operand!=""){
+        operands.push_back(operand);
+      }
+      index1 = index2;
+    }
+    return operands;
+}
+bool Line::isLiteral(std::string symbol){
+  for (char c:symbol){
+    if (!isdigit(c)) return false;
+  }
+  return true;
 }

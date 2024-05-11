@@ -10,11 +10,11 @@
 /*********************
  * Definicije tipova 
 **********************/
-#define NOTYPE 0;
-#define OBJECT 1;
-#define FUNC 2;
-#define SECTION 3;
-#define COMMON 4;
+#define NOTYPE 0
+#define OBJECT 1
+#define FUNC 2
+#define SECTION 3
+#define COMMON 4
 
 
 
@@ -36,6 +36,7 @@ sta znam
 
   struct ForwardRefsEntry{
     int patch; //adresa koja treba da se sredi;
+    std::string section;
     ForwardRefsEntry* next;//sledeci entry
   };
   struct SymbolTableEntry{
@@ -57,14 +58,20 @@ sta znam
     std::string section = "UNDEF";//ulaz u tabeli zaglavlja sekcija (section header table)
 
     bool defined;
-    ForwardRefsEntry* flink;
+    ForwardRefsEntry* flink = nullptr;
+    SymbolTableEntry(){}
+    SymbolTableEntry(int value,std::string section,int size = 0, int type = NOTYPE, bool is_global = false, bool defined = true )
+                : value(value),section(section),size(size), type(type), is_global(is_global),defined(defined){}
+
     
   };
   struct RelocationTableEntry{
     int offset; //lokacija gde se izvrsava prepravka, offset u odnosu na pocetak datoteke
-    int symbol; //indeks simbola u tabeli simbola prema kojem vrsimo relokaciju
-    int rela_type; //tip relokacije
-    int addend; //nepostredna vrednost koja se dodaje prilikom prepravke/relokacije
+    std::string symbol; //indeks simbola u tabeli simbola prema kojem vrsimo relokaciju
+    //int rela_type; //tip relokacije, mozda nam ne treba
+    int addend; //nepostredna vrednost koja se dodaje prilikom preprvke/realokacije
+    RelocationTableEntry(){}
+    RelocationTableEntry(int offset,std::string symbol,int addend):offset(offset),symbol(symbol),addend(addend){}
   };
   
   // da li je nama potrebna tabela sekcija? potencijalno i nije
@@ -88,8 +95,14 @@ Atributi asemblera
   std::unordered_map<std::string,RelocationTableEntry> relocation_table;
 
   //forwardrefs je u tabeli simbola tkd nema svoj atribut ovde
+  int location_counter = 0;
+  std::string current_section = "und";
 
+  //sadrzaj svake sekcije, upisujemo bajt po bajt pa smo stavili char
+  //parovi su section_name - sadrzaj
+  std::unordered_map<std::string,std::vector<char>> section_contents; 
 
+  bool end = false; // end direktiva ovo postavi i asembliranje se zavrsava
   public:
   /**************************
    * Metode asemblera
@@ -98,7 +111,7 @@ Atributi asemblera
   void addLine(Line& line);
   bool solveSymbols();
   
-
+  void printTables();
 };
 
 #endif
