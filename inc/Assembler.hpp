@@ -92,7 +92,7 @@ Atributi asemblera
   std::unordered_map<std::string,SymbolTableEntry> symbol_table;
 
   //relokacionih zapisa moze biti vise za jednu sekciju, mozemo svaka sekcija -> vektor zapisa
-  std::unordered_map<std::string,RelocationTableEntry> relocation_table;
+  std::unordered_map<std::string,std::vector<RelocationTableEntry>> relocation_table;
 
   //forwardrefs je u tabeli simbola tkd nema svoj atribut ovde
   int location_counter = 0;
@@ -112,6 +112,8 @@ Atributi asemblera
   bool solveSymbols();
   
   void printTables();
+  void parseJumpOperands(std::string operand,Line line);
+  int parseRegister(std::string reg_name);
 };
 
 #endif

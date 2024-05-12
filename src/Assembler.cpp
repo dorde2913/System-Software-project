@@ -107,8 +107,8 @@ void Assembler::addLine(Line& line){
                 addend = symbol_table[operand].value;
               }
 
-              relocation_table[symbol_table[operand].section] = RelocationTableEntry(
-                offset,symbol,addend
+              relocation_table[symbol_table[operand].section].push_back(
+                RelocationTableEntry(offset,symbol,addend)
               );
             }
             else{
@@ -211,33 +211,102 @@ void Assembler::addLine(Line& line){
       //jedan operand, adresa funkcije koja se poziva
       //push pc, pc<= operand
       //ovo moze preko 1 instrukcije, samo treba da se resi vrednost operanda
+
+      //operand je ili simbol ili literal, idu u D either way
+      //00100000 00000000 0000gornja4 donjih8D
+      std::string operand = operands.front();
+      //ovaj deo ispod mozemo da stavimo u funkciju parseJumpOperands()
+      parseJumpOperands(operand,line);
+      section_contents[current_section].push_back(0);
+      section_contents[current_section].push_back(32);
+
     }
     else if (instruction == "ret"){
       //nema operanada, radi se pop pc
+      //pc<=mem[sp];sp<=sp+4
+      section_contents[current_section].push_back(4);//najnizi bajt
+      section_contents[current_section].push_back(0);
+      section_contents[current_section].push_back(254);
+      section_contents[current_section].push_back(147);//najvisi bajt
     }
     else if (instruction == "jmp"){
       //pc<=operand, 1 operand
+      std::string operand = operands.front();
+      parseJumpOperands(operand,line);
+      section_contents[current_section].push_back(0);
+      section_contents[current_section].push_back(48);//najvisi bajt
     }
     else if (instruction == "beq"){
       //2 registra, operand koji predstavlja adresu za skok
       //ako r1==r2, pc<=operand
+      std::string reg1 = operands[0];
+      std::string reg2 = operands[1];
+      std::string operand = operands[2];
+
+      int reg_code1 = parseRegister(reg1);
+      int reg_code2 = parseRegister(reg2);
+
+      parseJumpOperands(operand,line);
+      reg_code1 = reg_code1<<4;
+      reg_code1+=reg_code2;
+      section_contents[current_section].push_back(reg_code1);
+      section_contents[current_section].push_back(49);
+
     }
     else if (instruction == "bne"){
-      //2 registra, operand koji predstavlja adresu za skok
-      //ako r1!=r2, pc<=operand
+      std::string reg1 = operands[0];
+      std::string reg2 = operands[1];
+      std::string operand = operands[2];
+
+      int reg_code1 = parseRegister(reg1);
+      int reg_code2 = parseRegister(reg2);
+
+      parseJumpOperands(operand,line);
+      reg_code1 = reg_code1<<4;
+      reg_code1+=reg_code2;
+      section_contents[current_section].push_back(reg_code1);
+      section_contents[current_section].push_back(50);
     }
     else if (instruction == "bgt"){
-      //2 registra, operand koji predstavlja adresu za skok
-      //ako r1>r2, pc<=operand
+      std::string reg1 = operands[0];
+      std::string reg2 = operands[1];
+      std::string operand = operands[2];
+
+      int reg_code1 = parseRegister(reg1);
+      int reg_code2 = parseRegister(reg2);
+
+      parseJumpOperands(operand,line);
+      reg_code1 = reg_code1<<4;
+      reg_code1+=reg_code2;
+      section_contents[current_section].push_back(reg_code1);
+      section_contents[current_section].push_back(51);
     }
     else if (instruction == "push"){
       //jedan operand koji je neki registar,
       //sp-=4, mem[sp] = reg
-
+      std::string reg = operands.front();
+      int reg_code = parseRegister(reg);
+      //1000 0001, u D upisujemo -4, u A sp, u B registar nas
+      int sp = 14;
+      sp = sp<<4;
+      sp+=reg_code;
+      section_contents[current_section].push_back(-4);//najnizi bajt
+      section_contents[current_section].push_back(0);
+      section_contents[current_section].push_back(sp);
+      section_contents[current_section].push_back(129);//najvisi bajt
     }
     else if (instruction == "pop"){
       //jedan operand-registar
       //reg = mem[sp], sp+=4
+      std::string reg = operands.front();
+      int reg_code = parseRegister(reg);
+      int sp = 14;
+      sp = sp<<4;
+      sp+=reg_code;
+      section_contents[current_section].push_back(4);//najnizi bajt
+      section_contents[current_section].push_back(0);
+      section_contents[current_section].push_back(sp);
+      section_contents[current_section].push_back(147);//najvisi bajt
     }
     else if (instruction == "xchg"){
       //2 operanada registri oba,
@@ -308,4 +377,90 @@ void Assembler::printTables(){
     "Global: "<<entry.second.is_global<<" - "<<
     "Section: "<<entry.second.section<<" - "<<std::endl;
   }
+}
+
+void Assembler::parseJumpOperands(std::string operand,Line line){
+
+
+  if (line.isLiteral(operand)){
+      //literal je
+    int literal = stoi(operand);
+    int bits_11_to_8 = (literal >> 8) & 0xF;
+    int lowest_8 = literal & 0xFF;
+    
+    section_contents[current_section].push_back(lowest_8);
+    section_contents[current_section].push_back(bits_11_to_8);
+    
+  }
+  else{
+    //prvo proveravamo da li je simbol definisan
+    if (symbol_table.count(operand) && symbol_table[operand].defined){
+      //ako je global addend = 0 i value je vrednost simbola,
+      //ako nije global value je sekcija i addend je 
+      int offset = location_counter-4;//4. bajt instrukcije
+      std::string sym;
+      int addend;
+
+      if (symbol_table[operand].is_global){
+        sym = operand;
+        addend = 0;
+      }
+      else{
+        sym = symbol_table[operand].section;
+        addend = symbol_table[operand].value;
+      }
+
+      relocation_table[current_section].push_back(RelocationTableEntry(
+        offset,sym,addend
+      ));
+    }
+    else{
+      //simbol ili nije u tabeli ili je defined = false;
+      if (symbol_table.count(operand)){
+        //dodajemo forwardlink
+        ForwardRefsEntry* temp = symbol_table[operand].flink;
+        if (!temp){
+          symbol_table[operand].flink = new ForwardRefsEntry();
+          symbol_table[operand].flink->next = nullptr;
+          symbol_table[operand].flink->section = current_section;
+          symbol_table[operand].flink->patch = location_counter-4;
+        }
+        else{
+          while(temp->next)temp=temp->next;
+          temp->next = new ForwardRefsEntry();
+          temp->next->next = nullptr;
+          temp->next->section = current_section;
+          temp->next->patch = location_counter-4;
+        }
+      }
+      else{
+        symbol_table[operand] = SymbolTableEntry(
+          0,current_section,0,0,false,true
+        );
+        symbol_table[operand].flink = new ForwardRefsEntry();
+        symbol_table[operand].flink->next = nullptr;
+        symbol_table[operand].flink->section = current_section;
+        symbol_table[operand].flink->patch = location_counter-4;
+      }
+    }
+  }
+}
+int Assembler::parseRegister(std::string register_name){
+  if (register_name == "%r0") return 0;
+  if (register_name == "%r1") return 1;
+  if (register_name == "%r2") return 2;
+  if (register_name == "%r3") return 3;
+  if (register_name == "%r4") return 4;
+  if (register_name == "%r5") return 5;
+  if (register_name == "%r6") return 6;
+  if (register_name == "%r7") return 7;
+  if (register_name == "%r8") return 8;
+  if (register_name == "%r9") return 9;
+  if (register_name == "%r10") return 10;
+  if (register_name == "%r11") return 11;
+  if (register_name == "%r12") return 12;
+  if (register_name == "%r13") return 13;
+  if (register_name == "%r14") return 14;
+  if (register_name == "%r15") return 15;
+  
 }
