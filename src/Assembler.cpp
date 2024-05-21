@@ -509,7 +509,7 @@ void Assembler::addLine(Line& line){
       r2_code+=r1_code;
 
       
-      section_contents[current_section].push_back(113);//najvisi bajt
+      section_contents[current_section].push_back(113);//najvisibajt
       section_contents[current_section].push_back(r2_code);
       section_contents[current_section].push_back(c_code);
       section_contents[current_section].push_back(0);//najnizi bajt
@@ -523,15 +523,64 @@ void Assembler::addLine(Line& line){
     */
     else if (instruction == "ld"){
       //operand + registar
+      /*
+      gledamo da li je immed preko literala/simbola, regdir
+      memind preko literala/simbola, regind,
+      regindpom sa literalom/simbolom
+      */
+     if (immed(operands)){
+
+     }
+     else if (regdir(operands)){
+
+     }
+     else if (memind(operands)){
+
+     }
+     else if (regind(operands)){
+
+     }
+     else if (regindpom(operands)){
+
+     }
+     else{
+      std::cout<<"ERROR - BAD ADDRESSING"<<std::endl;
+     }
+
     }
     else if (instruction == "st"){
       //registar + operand
     }
     else if (instruction == "csrrd"){
       //2 reg
+      //1001 0000
+      int r1_code = parseRegister(operands[0]);
+      int r2_code = parseRegister(operands[1]);
+      r2_code<<4;
+      r2_code+=r1_code;
+
+      section_contents[current_section].push_back(144);//najvisibajt
+      section_contents[current_section].push_back(r2_code);
+      section_contents[current_section].push_back(0);
+      section_contents[current_section].push_back(0);//najnizi bajt
     }
     else if (instruction == "csrwr"){
       //2 reg
+      //1001 0100 AAAA BBBB
+      int r1_code = parseRegister(operands[0]);
+      int r2_code = parseRegister(operands[1]);
+      r2_code<<4;
+      r2_code+=r1_code;
+
+      section_contents[current_section].push_back(148);//najvisibajt
+      section_contents[current_section].push_back(r2_code);
+      section_contents[current_section].push_back(0);
+      section_contents[current_section].push_back(0);//najnizi bajt
+
+    }
+    else{
+      //greska
+      std::cout<<"ERROR - BAD INSTRUCTION"<<std::endl;
     }
     
   }
@@ -655,4 +704,19 @@ int Assembler::parseRegister(std::string register_name){
   if (register_name == "%r14") return 14;
   if (register_name == "%r15") return 15;
   return -1;
+}
+bool immed(std::vector<std::string> operands){
+
+}
+bool regdir(std::vector<std::string> operands){
+
+}
+bool memind(std::vector<std::string> operands){
+
+}
+bool regind(std::vector<std::string> operands){
+
+}
+bool regindpom(std::vector<std::string> operands){
+
 }
