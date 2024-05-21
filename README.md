@@ -1,2 +1,2 @@
 # System-Software-project
-buh
+Single pass assembler, linker and emulator realized in C++.
