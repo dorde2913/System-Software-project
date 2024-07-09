@@ -1,0 +1,3 @@
+-uraditi funkciju getMemType koja treba da vrati o kojem se adresiranju radi
+-nakon toga u okviru obrade ld i st instrukcija na osnovu getMemType treba to parsirati u instrukciju 
+-

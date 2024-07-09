@@ -58,6 +58,7 @@ sta znam
     std::string section = "UNDEF";//ulaz u tabeli zaglavlja sekcija (section header table)
 
     bool defined;
+    bool is_extern = false;
     ForwardRefsEntry* flink = nullptr;
     SymbolTableEntry(){}
     SymbolTableEntry(int value,std::string section,int size = 0, int type = NOTYPE, bool is_global = false, bool defined = true )
@@ -114,6 +115,8 @@ Atributi asemblera
   void printTables();
   void parseJumpOperands(std::string operand,Line line);
   int parseRegister(std::string reg_name);
+  bool validSymbol(std::string symbol);
+  int getMemType(std::string operand);
 };
 
 #endif

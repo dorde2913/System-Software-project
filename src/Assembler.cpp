@@ -21,11 +21,11 @@ void Assembler::startAssembly(std::string input_file,std::string output_file){
   }
   printTables();
 }
+
+
 void Assembler::addLine(Line& line){
   line.cleanComments();
   if (line.empty()) return; //linija je imala samo komentar, ignorisemo je
-
-
 
   if (line.hasLabel()){
     //obrada labeli
@@ -35,6 +35,13 @@ void Assembler::addLine(Line& line){
       symbol_table[label].defined = true;
       symbol_table[label].section = current_section;
       symbol_table[label].value = location_counter;
+
+      ForwardRefsEntry* temp = symbol_table[label].flink;
+      while(temp){
+        section_contents[temp->section][temp->patch] = symbol_table[label].value;
+        temp = temp->next; 
+      }
+      symbol_table[label].flink = nullptr;
     }
     else{
       //prvi put vidimo
@@ -522,34 +529,39 @@ void Assembler::addLine(Line& line){
     sa memorijom
     */
     else if (instruction == "ld"){
-      //operand + registar
-      /*
-      gledamo da li je immed preko literala/simbola, regdir
-      memind preko literala/simbola, regind,
-      regindpom sa literalom/simbolom
-      */
-     if (immed(operands)){
+      //ld operand, %gprD
+      
+     int mem_type = getMemType(operands[0]);
+     switch(mem_type){
+      case 0:
 
-     }
-     else if (regdir(operands)){
+        break;
+      case 1:
 
-     }
-     else if (memind(operands)){
+        break;
+      case 2:
 
-     }
-     else if (regind(operands)){
+        break;
+      case 3:
 
+        break;
+      case 4:
+
+        break;
+      default:
+        std::cout<<"ERROR - BAD ADDRESSING"<<std::endl;
+        return;
+      
      }
-     else if (regindpom(operands)){
+  
+     //nakon adresiranja gledamo da li je ld ili st
+     if (instruction == "ld"){
 
      }
      else{
-      std::cout<<"ERROR - BAD ADDRESSING"<<std::endl;
+      //instruction == "st"
      }
 
-    }
-    else if (instruction == "st"){
-      //registar + operand
     }
     else if (instruction == "csrrd"){
       //2 reg
@@ -587,9 +599,15 @@ void Assembler::addLine(Line& line){
 
 
 }
+
+
 bool Assembler::solveSymbols(){
-  return false;
+  for (auto& symbol:symbol_table){
+    if (!symbol.second.defined) return false;
+  }
+  return true;
 }
+
 
 void Assembler::printTables(){
   std::cout<<"Symbol table: "<<std::endl;
@@ -705,18 +723,36 @@ int Assembler::parseRegister(std::string register_name){
   if (register_name == "%r15") return 15;
   return -1;
 }
-bool immed(std::vector<std::string> operands){
 
+int Assembler::getMemType(std::string operand){
+  /*
+  0 - memdir
+  1 - memind
+  2 - regdir
+  3 - regind 
+  4 - regindpom 
+  
+  memdir -> $literal, $symbol
+  memind -> literal / symbol
+  regdir -> %reg
+  regind -> [%reg]
+  regindpom -> [%reg + simbol/literal]
+
+  * svuda mogu da budu ili simbol ili literal, ako je simbol mora biti definisan i manji od 2^12 
+
+  */
+  
+
+  
+  return -1;
 }
-bool regdir(std::vector<std::string> operands){
-
-}
-bool memind(std::vector<std::string> operands){
-
-}
-bool regind(std::vector<std::string> operands){
-
-}
-bool regindpom(std::vector<std::string> operands){
-
+bool Assembler::validSymbol(std::string symbol){
+  //da li je simbol definisan tokom asembliranja (nije extern) i manji od 2^12
+  //ovde samo proveravamo da li je extern jer ako nije i nije def asembler svjd baca gresku 
+  for (auto& s:symbol_table){
+    if (s.first == symbol && s.second.is_extern){
+      return false;
+    }
+  }
+  return true; // ako nije jos definisan onda skoro sigurno nije extern pa ce potencijalnu gresku kasnije pokupiti
 }
