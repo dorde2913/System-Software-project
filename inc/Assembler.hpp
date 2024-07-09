@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <vector>
 #include <utility>
+#include <regex>
 
 #include "Parser.hpp"
 

@@ -534,20 +534,38 @@ void Assembler::addLine(Line& line){
      int mem_type = getMemType(operands[0]);
      switch(mem_type){
       case 0:
-
+        //immed symbol
+        
         break;
       case 1:
-
+        //immed literal
         break;
       case 2:
+        //mem symbol
 
         break;
       case 3:
+        //mem literal
 
         break;
       case 4:
+        //reg
 
         break;
+      case 5:
+        //reg
+
+        break;
+      case 6:
+        //regind sym
+
+        break;
+      case 7:
+        //regind literal
+
+        break;
+
+
       default:
         std::cout<<"ERROR - BAD ADDRESSING"<<std::endl;
         return;
@@ -726,11 +744,15 @@ int Assembler::parseRegister(std::string register_name){
 
 int Assembler::getMemType(std::string operand){
   /*
-  0 - memdir
-  1 - memind
-  2 - regdir
-  3 - regind 
-  4 - regindpom 
+  0 - immed sym
+  1 - immed literal
+  2 - mem sym
+  3 - mem literal 
+  4 - regdir
+  5 - regind
+  6 - regindpom symbol
+  7 - regindpom literal
+  -1 - error
   
   memdir -> $literal, $symbol
   memind -> literal / symbol
@@ -741,16 +763,38 @@ int Assembler::getMemType(std::string operand){
   * svuda mogu da budu ili simbol ili literal, ako je simbol mora biti definisan i manji od 2^12 
 
   */
-  
+   std::regex immediate_symbol_pattern(R"(\$?[a-zA-Z_][a-zA-Z0-9_]*)");
+    std::regex immediate_literal_pattern(R"(\$?[0-9]+)");
+    std::regex register_pattern(R"(%[a-zA-Z0-9_]+)");
+    std::regex memory_register_pattern(R"(\[%[a-zA-Z0-9_]+\])");
+    std::regex memory_register_symbol_pattern(R"(\[%[a-zA-Z0-9_]+\+[a-zA-Z_][a-zA-Z0-9_]*\])");
+    std::regex memory_register_literal_pattern(R"(\[%[a-zA-Z0-9_]+\+[0-9]+\])");
 
-  
-  return -1;
+    if (std::regex_match(operand, immediate_symbol_pattern)) {
+        return operand[0] == '$' ? 0 : 2;
+    } else if (std::regex_match(operand, immediate_literal_pattern)) {
+        return operand[0] == '$' ? 1 : 3;
+    } else if (std::regex_match(operand, register_pattern)) {
+        return 4;
+    } else if (std::regex_match(operand, memory_register_pattern)) {
+        return 5;
+    } else if (std::regex_match(operand, memory_register_symbol_pattern)) {
+        return 6;
+    } else if (std::regex_match(operand, memory_register_literal_pattern)) {
+        return 7;
+    } else {
+        return -1;
+    }
 }
 bool Assembler::validSymbol(std::string symbol){
   //da li je simbol definisan tokom asembliranja (nije extern) i manji od 2^12
   //ovde samo proveravamo da li je extern jer ako nije i nije def asembler svjd baca gresku 
+  std::string sym = "";
+  for (char c:symbol){
+    if (c!='$') sym+=c;
+  }
   for (auto& s:symbol_table){
-    if (s.first == symbol && s.second.is_extern){
+    if (s.first == sym && s.second.is_extern){
       return false;
     }
   }
