@@ -1,5 +1,6 @@
 #include "../inc/Assembler.hpp"
-#include <bitset>
+
+
 void Assembler::startAssembly(std::string input_file,std::string output_file){
   this->file_name = input_file;
   this->output_name = output_file;
@@ -66,6 +67,7 @@ void Assembler::addLine(Line& line){
       //obrada extern, oprandi su SIMBOLI
       for (std::string& operand:operands){
         this->symbol_table[operand] = SymbolTableEntry(0,"und",0,NOTYPE,true);
+        this->symbol_table[operand].is_extern = true;
       }
     }
     if (directive == ".section"){
@@ -574,10 +576,18 @@ void Assembler::addLine(Line& line){
   
      //nakon adresiranja gledamo da li je ld ili st
      if (instruction == "ld"){
-
+      section_contents[current_section].push_back(255);
+      section_contents[current_section].push_back(255);
+      section_contents[current_section].push_back(255);
+      section_contents[current_section].push_back(255);
      }
      else{
       //instruction == "st"
+      section_contents[current_section].push_back(255);
+      section_contents[current_section].push_back(255);
+      section_contents[current_section].push_back(255);
+      section_contents[current_section].push_back(255);
+
      }
 
     }
@@ -629,13 +639,46 @@ bool Assembler::solveSymbols(){
 
 void Assembler::printTables(){
   std::cout<<"Symbol table: "<<std::endl;
-  for (auto& entry:symbol_table){
-    std::cout<<"Name: "<<entry.first<<" - "<<
-    "Value: "<<entry.second.value<<" - "<<
-    "Size: "<<entry.second.size<<" - "<<
-    "Type: "<<entry.second.type<<" - "<<
-    "Global: "<<entry.second.is_global<<" - "<<
-    "Section: "<<entry.second.section<<" - "<<std::endl;
+  
+  std::cout << std::left
+              << std::setw(25) << "Name"
+              << std::setw(10) << "Value"
+              << std::setw(10) << "Size"
+              << std::setw(10) << "Type"
+              << std::setw(10) << "Global"
+              << std::setw(20) << "Section"
+              << std::setw(10) << "Defined"
+              << std::setw(10) << "Extern"
+              << std::endl;
+
+  for (auto& entry:symbol_table) {
+      std::cout << std::left
+                << std::setw(25) << entry.first
+                << std::setw(10) << entry.second.value
+                << std::setw(10) << entry.second.size
+                << std::setw(10) << entry.second.type
+                << std::setw(10) << entry.second.is_global
+                << std::setw(20) << entry.second.section
+                << std::setw(10) << entry.second.defined
+                << std::setw(10) << entry.second.is_extern
+                << std::endl;
+  }
+  std::cout << "reloaction tables"<<std::endl;
+  for(auto& table:relocation_table){
+    std::cout << std::left
+                << std::setw(25) << table.first << std::endl;
+    std::cout << std::left
+              << std::setw(10) << "Addend"
+              << std::setw(10) << "Offset"
+              << std::setw(10) << "Symbol"
+              << std::endl;
+    for (auto& entry: table.second ){
+      std::cout << std::left
+                << std::setw(10) << entry.addend
+                << std::setw(10) << entry.offset
+                << std::setw(10) << entry.symbol
+                << std::endl;
+    }
   }
   std::cout<<"section contents"<<std::endl;
   /*

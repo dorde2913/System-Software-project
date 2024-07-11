@@ -5,6 +5,8 @@
 #include <vector>
 #include <utility>
 #include <regex>
+#include <iomanip>
+#include <bitset>
 
 #include "Parser.hpp"
 
