@@ -17,10 +17,13 @@ void Assembler::startAssembly(std::string input_file,std::string output_file){
   }
   
   bool solved = this->solveSymbols();
-  if (!solved){
+  if (!solved || error){
     std::cout<<"ERROR"<<std::endl;
   }
-  printTables();
+  else{
+    printTables();
+  }
+  
 }
 
 
@@ -39,6 +42,10 @@ void Assembler::addLine(Line& line){
 
       ForwardRefsEntry* temp = symbol_table[label].flink;
       while(temp){
+        //std::cout<<label<<std::endl;
+        if (label == "finish"){
+          std::cout<<temp->patch<<std::endl;
+        }
         section_contents[temp->section][temp->patch] = symbol_table[label].value;
         temp = temp->next; 
       }
@@ -534,42 +541,80 @@ void Assembler::addLine(Line& line){
       //ld operand, %gprD
       
      int mem_type = getMemType(operands[0]);
+     /*
+      0 - immed sym
+      1 - immed literal
+      2 - mem sym
+      3 - mem literal 
+      4 - regdir
+      5 - regind
+      6 - regindpom symbol
+      7 - regindpom literal
+      -1 - error
+      */
      switch(mem_type){
       case 0:
         //immed symbol
-        
+        if (validSymbol(operands[0])){
+          std::cout<<"Immed symbol: "<<operands[0]<<std::endl;
+        }
+        else{
+          std::cout<<"INVALID SYMBOL: "<<operands[0]<<std::endl;
+          end = true;
+          error = true;
+          return;
+        }
         break;
       case 1:
         //immed literal
+        std::cout<<"Immed literal: "<<operands[0]<<std::endl;
         break;
       case 2:
         //mem symbol
-
+        if (validSymbol(operands[0])){
+          std::cout<<"Mem symbol: "<<operands[0]<<std::endl;
+        }
+        else{
+          std::cout<<"INVALID SYMBOL: "<<operands[0]<<std::endl;
+          end = true;
+          error = true;
+          return;
+        }
+        
         break;
       case 3:
         //mem literal
-
+        std::cout<<"mem literal: "<<operands[0]<<std::endl;
         break;
       case 4:
         //reg
-
+        std::cout<<"Reg: "<<operands[0]<<std::endl;
         break;
       case 5:
-        //reg
-
+        //regind
+        std::cout<<"Regind: "<<operands[0]<<std::endl;
         break;
       case 6:
         //regind sym
-
+        if (validSymbol(operands[0])){
+          std::cout<<"Regind sym: "<<operands[0]<<std::endl;
+        }
+        else{
+          std::cout<<"INVALID SYMBOL: "<<operands[0]<<std::endl;
+          end = true;
+          error = true;
+          return;
+        }
+        
         break;
       case 7:
         //regind literal
-
+        std::cout<<"Regind literal: "<<operands[0]<<std::endl;
         break;
-
-
       default:
         std::cout<<"ERROR - BAD ADDRESSING"<<std::endl;
+        end = true;
+        error = true;
         return;
       
      }
@@ -638,8 +683,9 @@ bool Assembler::solveSymbols(){
 
 
 void Assembler::printTables(){
+  std::cout << "--------------------------------------------------"<<std::endl;
   std::cout<<"Symbol table: "<<std::endl;
-  
+  std::cout << "--------------------------------------------------"<<std::endl;
   std::cout << std::left
               << std::setw(25) << "Name"
               << std::setw(10) << "Value"
@@ -663,7 +709,9 @@ void Assembler::printTables(){
                 << std::setw(10) << entry.second.is_extern
                 << std::endl;
   }
-  std::cout << "reloaction tables"<<std::endl;
+  std::cout << "--------------------------------------------------"<<std::endl;
+  std::cout << "Relocation tables: "<<std::endl;
+  std::cout << "--------------------------------------------------"<<std::endl;
   for(auto& table:relocation_table){
     std::cout << std::left
                 << std::setw(25) << table.first << std::endl;
@@ -680,7 +728,9 @@ void Assembler::printTables(){
                 << std::endl;
     }
   }
+  std::cout << "--------------------------------------------------"<<std::endl;
   std::cout<<"section contents"<<std::endl;
+  std::cout << "--------------------------------------------------"<<std::endl;
   /*
   sve instrukcije po 4B
   */
@@ -750,7 +800,7 @@ void Assembler::parseJumpOperands(std::string operand,Line line){
           temp->next = new ForwardRefsEntry();
           temp->next->next = nullptr;
           temp->next->section = current_section;
-          temp->next->patch = location_counter-4;
+          temp->next->patch = location_counter-1;
         }
       }
       else{
@@ -836,10 +886,20 @@ bool Assembler::validSymbol(std::string symbol){
   for (char c:symbol){
     if (c!='$') sym+=c;
   }
+  bool def = false;
   for (auto& s:symbol_table){
-    if (s.first == sym && s.second.is_extern){
-      return false;
+    if (s.first == sym){
+      if (s.second.is_extern){
+        return false;
+      }
+      def = true;
+      break;
     }
   }
+  //nije extern, sad ako nije vec u tabeli ubacujemo ga u tabelu simbola
+  symbol_table[sym] = SymbolTableEntry(
+    location_counter-1,current_section //-1 jer je to 4. bajt 
+  );
+  symbol_table[sym].defined = false;
   return true; // ako nije jos definisan onda skoro sigurno nije extern pa ce potencijalnu gresku kasnije pokupiti
 }

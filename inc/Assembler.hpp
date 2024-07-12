@@ -106,6 +106,7 @@ Atributi asemblera
   //parovi su section_name - sadrzaj
   std::unordered_map<std::string,std::vector<char>> section_contents; 
 
+  bool error = false;
   bool end = false; // end direktiva ovo postavi i asembliranje se zavrsava
   public:
   /**************************
