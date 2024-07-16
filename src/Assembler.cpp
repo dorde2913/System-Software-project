@@ -572,9 +572,6 @@ void Assembler::addLine(Line& line){
         section_contents[current_section].push_back(reg_code<<4);
         last_12b = parseMemoryOperand(operands[0],mem_type);
 
-
-        std::cout<<"4 najvisa: "<<(last_12b>>8)<<std::endl;
-        std::cout<<"8 nizih: "<<(last_12b&255)<<std::endl;
         section_contents[current_section].push_back(last_12b>>8);
         section_contents[current_section].push_back(last_12b&255);
 
@@ -591,9 +588,6 @@ void Assembler::addLine(Line& line){
         //1001 0001 DESTDIR 0000 0000 DDDD DDDD DDDD
         section_contents[current_section].push_back(145);
         section_contents[current_section].push_back(reg_code<<4);
-
-        std::cout<<"4 najvisa: "<<(last_12b>>8)<<std::endl;
-        std::cout<<"8 nizih: "<<(last_12b&255)<<std::endl;
         section_contents[current_section].push_back(last_12b>>8);
         section_contents[current_section].push_back(last_12b&255);
         break;
@@ -676,21 +670,107 @@ void Assembler::addLine(Line& line){
       
      }
   
-     //nakon adresiranja gledamo da li je ld ili st
-     if (instruction == "ld"){
-      //section_contents[current_section].push_back(255);
-      //section_contents[current_section].push_back(255);
-      //section_contents[current_section].push_back(255);
-      //section_contents[current_section].push_back(255);
-     }
-     else{
-      //instruction == "st"
-      section_contents[current_section].push_back(255);
-      section_contents[current_section].push_back(255);
-      section_contents[current_section].push_back(255);
-      section_contents[current_section].push_back(255);
+    }
+    else if (instruction == "st"){
+      int reg_code = parseRegister(operands[0]);
+      if (reg_code == -1){
+        error = 1;
+        end = 1;
+        return;
+      }
 
+      int mem_type = getMemType(operands[1]);
+
+      int last_12b; 
+     switch(mem_type){
+      case 0:
+        //immed symbol
+        
+        std::cout<<"Immed symbol: "<<operands[1]<<std::endl;
+
+        //st 1000 0000 0000 0000 SRC SYM SYM SYM
+        section_contents[current_section].push_back(128);
+        section_contents[current_section].push_back(0);
+        last_12b = parseMemoryOperand(operands[1],mem_type);
+        section_contents[current_section].push_back((last_12b>>8)+(reg_code<<4));
+        section_contents[current_section].push_back(last_12b&255);
+        break;
+      case 1:
+        //immed literal
+        section_contents[current_section].push_back(128);
+        section_contents[current_section].push_back(0);
+        last_12b = parseMemoryOperand(operands[1],mem_type);
+        section_contents[current_section].push_back((last_12b>>8)+(reg_code<<4));
+        section_contents[current_section].push_back(last_12b&255);
+        break;
+      case 2:
+        //mem symbol
+        //1000 0010 0000 0000 SRC SYM SYM SYM
+        last_12b = parseMemoryOperand(operands[1],mem_type);
+        std::cout<<"Mem symbol: "<<operands[1]<<std::endl;
+        
+        
+        section_contents[current_section].push_back(130);
+        section_contents[current_section].push_back(0);
+        section_contents[current_section].push_back((last_12b>>8)+(reg_code<<4));
+        section_contents[current_section].push_back(last_12b&255);
+    
+        break;
+      case 3:
+        last_12b = parseMemoryOperand(operands[1],mem_type);
+        section_contents[current_section].push_back(130);
+        section_contents[current_section].push_back(0);
+        section_contents[current_section].push_back((last_12b>>8)+(reg_code<<4));
+        section_contents[current_section].push_back(last_12b&255);
+        break;
+      case 4:
+        //reg
+        last_12b = parseMemoryOperand(operands[1],mem_type);
+        
+        
+        //1001 0001 DEST SRC 0000 0000 0000 0000
+        section_contents[current_section].push_back(145);
+        section_contents[current_section].push_back((last_12b<<4)+reg_code);
+        section_contents[current_section].push_back(0);
+        section_contents[current_section].push_back(0);
+        std::cout<<"Reg: "<<operands[1]<<std::endl;
+        break;
+      case 5:
+        //regind 1000 0000 0000 DEST SRC 0000 0000 0000
+        last_12b = parseMemoryOperand(operands[1],mem_type);
+        section_contents[current_section].push_back(128);
+        section_contents[current_section].push_back(last_12b);
+        section_contents[current_section].push_back(reg_code<<4);
+        section_contents[current_section].push_back(0);
+  
+        break;
+      case 6:
+        //regind sym
+        // ????
+        
+        break;
+      case 7:
+        //regind literal 1000 0000 0000 DEST SRC OFF OFF OFF
+        
+
+        last_12b = parseMemoryOperand(operands[1],mem_type);
+        section_contents[current_section].push_back(128);
+        section_contents[current_section].push_back(last_12b>>16);
+        last_12b = last_12b<<20;
+        last_12b = last_12b>>20;
+        section_contents[current_section].push_back((reg_code<<4) + last_12b>>8 );
+        section_contents[current_section].push_back(last_12b & 255);
+
+
+        break;
+      default:
+        std::cout<<"ERROR - BAD ADDRESSING"<<std::endl;
+        end = true;
+        error = true;
+        return;
+      
      }
+
 
     }
     else if (instruction == "csrrd"){
