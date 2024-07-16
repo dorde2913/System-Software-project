@@ -6,7 +6,7 @@ handler:
     push %r1
     push %r2
     csrrd %cause, %r1
-    ld $2, %r2
+    ld $finish, %r2
     beq %r1, %r2, handle_timer
     ld $3, %r2
     beq %r1, %r2, handle_terminal

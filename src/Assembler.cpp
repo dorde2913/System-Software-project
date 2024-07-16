@@ -42,11 +42,11 @@ void Assembler::addLine(Line& line){
 
       ForwardRefsEntry* temp = symbol_table[label].flink;
       while(temp){
-        //std::cout<<label<<std::endl;
-        if (label == "finish"){
-          std::cout<<temp->patch<<std::endl;
-        }
-        section_contents[temp->section][temp->patch] = symbol_table[label].value;
+        section_contents[temp->section][temp->patch-1] = symbol_table[label].value>>8;
+        section_contents[temp->section][temp->patch] = symbol_table[label].value&255;
+        relocation_table[current_section].push_back(RelocationTableEntry(
+          temp->patch,symbol_table[label].section,location_counter
+        ));
         temp = temp->next; 
       }
       symbol_table[label].flink = nullptr;
@@ -540,6 +540,13 @@ void Assembler::addLine(Line& line){
     else if (instruction == "ld"){
       //ld operand, %gprD
       
+      int reg_code = parseRegister(operands[1]);
+      if (reg_code == -1){
+        error = 1;
+        end = 1;
+        return;
+      }
+
      int mem_type = getMemType(operands[0]);
      /*
       0 - immed sym
@@ -552,26 +559,46 @@ void Assembler::addLine(Line& line){
       7 - regindpom literal
       -1 - error
       */
+     int last_12b; 
      switch(mem_type){
       case 0:
         //immed symbol
-        if (validSymbol(operands[0])){
-          std::cout<<"Immed symbol: "<<operands[0]<<std::endl;
-        }
-        else{
-          std::cout<<"INVALID SYMBOL: "<<operands[0]<<std::endl;
-          end = true;
-          error = true;
-          return;
-        }
+        
+        std::cout<<"Immed symbol: "<<operands[0]<<std::endl;
+
+        //ubacivanje binarnog u sekciju za prva 2 bajta
+        section_contents[current_section].push_back(145);
+        section_contents[current_section].push_back(reg_code<<4);
+        last_12b = parseMemoryOperand(operands[0],mem_type);
+
+
+        std::cout<<"4 najvisa: "<<(last_12b>>8)<<std::endl;
+        std::cout<<"8 nizih: "<<(last_12b&255)<<std::endl;
+        section_contents[current_section].push_back(last_12b>>8);
+        section_contents[current_section].push_back(last_12b&255);
+
+
         break;
+          //std::cout<<"INVALID SYMBOL: "<<operands[0]<<std::endl;
+          //end = true;
+          //error = true;
+          //return;
       case 1:
         //immed literal
         std::cout<<"Immed literal: "<<operands[0]<<std::endl;
+        last_12b = parseMemoryOperand(operands[0],mem_type);
+        //1001 0001 DESTDIR 0000 0000 DDDD DDDD DDDD
+        section_contents[current_section].push_back(145);
+        section_contents[current_section].push_back(reg_code<<4);
+
+        std::cout<<"4 najvisa: "<<(last_12b>>8)<<std::endl;
+        std::cout<<"8 nizih: "<<(last_12b&255)<<std::endl;
+        section_contents[current_section].push_back(last_12b>>8);
+        section_contents[current_section].push_back(last_12b&255);
         break;
       case 2:
         //mem symbol
-        if (validSymbol(operands[0])){
+        if (parseMemoryOperand(operands[0],mem_type)){
           std::cout<<"Mem symbol: "<<operands[0]<<std::endl;
         }
         else{
@@ -596,7 +623,7 @@ void Assembler::addLine(Line& line){
         break;
       case 6:
         //regind sym
-        if (validSymbol(operands[0])){
+        if (parseMemoryOperand(operands[0],mem_type)){
           std::cout<<"Regind sym: "<<operands[0]<<std::endl;
         }
         else{
@@ -621,10 +648,10 @@ void Assembler::addLine(Line& line){
   
      //nakon adresiranja gledamo da li je ld ili st
      if (instruction == "ld"){
-      section_contents[current_section].push_back(255);
-      section_contents[current_section].push_back(255);
-      section_contents[current_section].push_back(255);
-      section_contents[current_section].push_back(255);
+      //section_contents[current_section].push_back(255);
+      //section_contents[current_section].push_back(255);
+      //section_contents[current_section].push_back(255);
+      //section_contents[current_section].push_back(255);
      }
      else{
       //instruction == "st"
@@ -762,8 +789,7 @@ void Assembler::parseJumpOperands(std::string operand,Line line){
   }
   else{
     //prvo proveravamo da li je simbol definisan
-    section_contents[current_section].push_back(0);
-    section_contents[current_section].push_back(0);
+    
     if (symbol_table.count(operand) && symbol_table[operand].defined){
       //ako je global addend = 0 i value je vrednost simbola,
       //ako nije global value je sekcija i addend je 
@@ -779,6 +805,8 @@ void Assembler::parseJumpOperands(std::string operand,Line line){
         sym = symbol_table[operand].section;
         addend = symbol_table[operand].value;
       }
+      section_contents[current_section].push_back(addend>>8);
+      section_contents[current_section].push_back(addend&255);
 
       relocation_table[current_section].push_back(RelocationTableEntry(
         offset,sym,addend
@@ -786,6 +814,8 @@ void Assembler::parseJumpOperands(std::string operand,Line line){
     }
     else{
       //simbol ili nije u tabeli ili je defined = false;
+      section_contents[current_section].push_back(0);
+      section_contents[current_section].push_back(0);
       if (symbol_table.count(operand)){
         //dodajemo forwardlink
         ForwardRefsEntry* temp = symbol_table[operand].flink;
@@ -816,6 +846,11 @@ void Assembler::parseJumpOperands(std::string operand,Line line){
   }
 }
 int Assembler::parseRegister(std::string register_name){
+  //treba da se doda za cause i jos neke
+  if (register_name == "%cause") return 0; //ovo nije ista instrukcija tkd moze da se preklapa valjda
+  if (register_name == "%handler") return 1;
+  if (register_name == "%status") return 2;
+
   if (register_name == "%r0") return 0;
   if (register_name == "%r1") return 1;
   if (register_name == "%r2") return 2;
@@ -879,27 +914,62 @@ int Assembler::getMemType(std::string operand){
         return -1;
     }
 }
-bool Assembler::validSymbol(std::string symbol){
-  //da li je simbol definisan tokom asembliranja (nije extern) i manji od 2^12
-  //ovde samo proveravamo da li je extern jer ako nije i nije def asembler svjd baca gresku 
-  std::string sym = "";
-  for (char c:symbol){
-    if (c!='$') sym+=c;
-  }
-  bool def = false;
-  for (auto& s:symbol_table){
-    if (s.first == sym){
-      if (s.second.is_extern){
-        return false;
+int Assembler::parseMemoryOperand(std::string symbol,int type){
+  //type nam kaze koji tip adresiranja, pa mi vratimo zadnjih 12 bita ili koliko vec
+  std::string temp = "";
+  int ret;
+  switch(type){
+    case 0:
+      //immed symbol
+      for (char c:symbol){
+        if (c!='$'){
+          temp+=c;
+        }
       }
-      def = true;
+      ret = handleSymbol(temp);
+      
       break;
-    }
-  }
-  //nije extern, sad ako nije vec u tabeli ubacujemo ga u tabelu simbola
-  symbol_table[sym] = SymbolTableEntry(
-    location_counter-1,current_section //-1 jer je to 4. bajt 
-  );
-  symbol_table[sym].defined = false;
-  return true; // ako nije jos definisan onda skoro sigurno nije extern pa ce potencijalnu gresku kasnije pokupiti
+    case 1:
+      //immed literal
+      for (char c:symbol){
+        if (c!='$'){
+          temp+=c;
+        }
+      }
+      ret = stoi(temp);
+      std::cout<<"Parsed literal: "<<ret<<std::endl;
+      return ret;
+      break;
+  } 
+
+  return 0;
+}
+int Assembler::handleSymbol(std::string sym){
+  if (symbol_table.count(sym)){
+        //ima ulaz
+        if (!symbol_table[sym].defined){
+          ForwardRefsEntry* t =  symbol_table[sym].flink;
+          while(t->next)t = t->next;
+          t->next = new ForwardRefsEntry();
+          t->next->next=nullptr;
+          t->next->patch = location_counter-1;
+
+          return 0;
+        }
+        else{
+          relocation_table[current_section].push_back(RelocationTableEntry(
+            location_counter-1,sym,symbol_table[sym].value
+          ));
+          return symbol_table[sym].value;
+        }
+      }
+      else{
+        symbol_table[sym] = SymbolTableEntry(0,"undef",0,0,false,false);
+        symbol_table[sym].flink = new ForwardRefsEntry();
+        symbol_table[sym].flink->next = nullptr;
+        symbol_table[sym].flink->patch = location_counter-1;
+        symbol_table[sym].flink->section = current_section;
+
+        return 0;
+      }
 }

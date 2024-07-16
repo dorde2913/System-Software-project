@@ -1,7 +1,2 @@
--uraditi funkciju getMemType koja treba da vrati o kojem se adresiranju radi
--nakon toga u okviru obrade ld i st instrukcija na osnovu getMemType treba to parsirati u instrukciju 
-
--srediti relokacione tabele
-
--tabela simbola deluje okej?
--kako rade relokacione tabele?????????????????////
+-za load/store SAMO KOD REGINPOM VAZI DA MORA BITI POZNATA VREDNOST PRILIKOM ASEMBLIRANJA D:
+-ISPRAVITI ! ! ! !

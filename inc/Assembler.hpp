@@ -119,8 +119,9 @@ Atributi asemblera
   void printTables();
   void parseJumpOperands(std::string operand,Line line);
   int parseRegister(std::string reg_name);
-  bool validSymbol(std::string symbol);
+  int parseMemoryOperand(std::string symbol,int type);
   int getMemType(std::string operand);
+  int handleSymbol(std::string sym);
 };
 
 #endif
