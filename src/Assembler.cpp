@@ -10,7 +10,6 @@ void Assembler::startAssembly(std::string input_file,std::string output_file){
   parser.setFile(input_file);
 
   while (!Parser::end){
-    //std::cout<<"u while"<<std::endl;
     Line line = parser.parseLine();
     this->addLine(line);
     if (this->end) break;
@@ -25,7 +24,6 @@ void Assembler::startAssembly(std::string input_file,std::string output_file){
   }
   
 }
-
 
 void Assembler::addLine(Line& line){
   line.cleanComments();
@@ -103,6 +101,7 @@ void Assembler::addLine(Line& line){
           int high = value >> 8;
           section_contents[current_section].push_back(low);
           section_contents[current_section].push_back(high);
+          //nisam siguran da je ovo dobro, mozda naopako
         }
         else{
           //ipak je simbol, treba nam vrednost simbola,
@@ -188,19 +187,11 @@ void Assembler::addLine(Line& line){
     //U INSTRUKCIJAMA JE SOURCE PA DEST ??
     if (instruction == "halt"){
       //zaustavljanje izvrsavanja, nema operande
-      section_contents[current_section].push_back(0);
-      section_contents[current_section].push_back(0);
-      section_contents[current_section].push_back(0);
-      section_contents[current_section].push_back(0);
+      pushInstruction(0,0,0,0);
     }
     else if (instruction == "int"){
       //softverski prekid, nema op
-      section_contents[current_section].push_back(16);
-      section_contents[current_section].push_back(0);
-      section_contents[current_section].push_back(0);
-      section_contents[current_section].push_back(0);
-      
-
+      pushInstruction(16,0,0,0);
     }
     else if (instruction == "iret"){
       //pop pc, pop status , nema op
@@ -213,17 +204,9 @@ void Assembler::addLine(Line& line){
       //r14 JE SP, r15 JE PC
       location_counter+=4;
       //pop pc
-      section_contents[current_section].push_back(147);//najvisi bajt
-      section_contents[current_section].push_back(254);
-      section_contents[current_section].push_back(0);
-      section_contents[current_section].push_back(4);//najnizi bajt
-      
-      
-      section_contents[current_section].push_back(151);
-      section_contents[current_section].push_back(14);
-      section_contents[current_section].push_back(0);
-      section_contents[current_section].push_back(4);
-      
+      pushInstruction(147,254,0,4);
+
+      pushInstruction(151,14,0,4);
     }
     else if (instruction == "call"){
       //jedan operand, adresa funkcije koja se poziva
@@ -237,20 +220,12 @@ void Assembler::addLine(Line& line){
       section_contents[current_section].push_back(32);
       section_contents[current_section].push_back(0);
       parseJumpOperands(operand,line);
-      
-      
-
+    
     }
     else if (instruction == "ret"){
       //nema operanada, radi se pop pc
       //pc<=mem[sp];sp<=sp+4
-      section_contents[current_section].push_back(147);//najvisi bajt
-      section_contents[current_section].push_back(254);
-      section_contents[current_section].push_back(0);
-      section_contents[current_section].push_back(4);//najnizi bajt
-      
-      
-      
+      pushInstruction(147,254,0,4);
     }
     else if (instruction == "jmp"){
       //pc<=operand, 1 operand
@@ -258,8 +233,6 @@ void Assembler::addLine(Line& line){
       section_contents[current_section].push_back(48);//najvisi bajt
       section_contents[current_section].push_back(0);
       parseJumpOperands(operand,line);
-      
-      
     }
     else if (instruction == "beq"){
       //2 registra, operand koji predstavlja adresu za skok
@@ -276,10 +249,6 @@ void Assembler::addLine(Line& line){
       section_contents[current_section].push_back(49);
       section_contents[current_section].push_back(reg_code1);
       parseJumpOperands(operand,line);
-      
-      
-      
-
     }
     else if (instruction == "bne"){
       std::string reg1 = operands[0];
@@ -293,9 +262,6 @@ void Assembler::addLine(Line& line){
       section_contents[current_section].push_back(50);
       section_contents[current_section].push_back(reg_code1);
       parseJumpOperands(operand,line);
-      
-      
-      
     }
     else if (instruction == "bgt"){
       std::string reg1 = operands[0];
@@ -309,9 +275,6 @@ void Assembler::addLine(Line& line){
       section_contents[current_section].push_back(51);
       section_contents[current_section].push_back(reg_code1);
       parseJumpOperands(operand,line);
-      
-      
-      
     }
     else if (instruction == "push"){
       //jedan operand koji je neki registar,
@@ -322,13 +285,8 @@ void Assembler::addLine(Line& line){
       int sp = 14;
       sp = sp<<4;
       sp+=reg_code;
-      section_contents[current_section].push_back(129);//najvisi bajt
-      section_contents[current_section].push_back(sp);
-      section_contents[current_section].push_back(0);
-      section_contents[current_section].push_back(-4);//najnizi bajt
-      
-      
-      
+
+      pushInstruction(129,sp,0,-4);
     }
     else if (instruction == "pop"){
       //jedan operand-registar
@@ -338,32 +296,19 @@ void Assembler::addLine(Line& line){
       int sp = 14;
       sp = sp<<4;
       sp+=reg_code;
-      section_contents[current_section].push_back(147);//najvisi bajt
-      section_contents[current_section].push_back(sp);
-      section_contents[current_section].push_back(0);
-      section_contents[current_section].push_back(4);//najnizi bajt
       
-      
-      
+      pushInstruction(147,sp,0,4);
     }
     else if (instruction == "xchg"){
       //2 operanada registri oba,
       //temp = r1, r1 = r2, r2=temp -> zamena vrednosti 2 registra
       //0100 0000 0000 BBBB CCCC 0000 0000
 
-      
-
-
       int r1_code = parseRegister(operands[0]);
       int r2_code = parseRegister(operands[1]);
       r2_code<<4;
-      section_contents[current_section].push_back(64);//najvisi bajt
-      section_contents[current_section].push_back(r1_code);
-      section_contents[current_section].push_back(r2_code);
-      section_contents[current_section].push_back(0);//najnizi bajt
       
-      
-      
+      pushInstruction(64,r1_code,r2_code,0);
     }
     else if (instruction == "add"){
       //2 registra
@@ -375,13 +320,8 @@ void Assembler::addLine(Line& line){
       int c_code = r2_code<<4;
       r2_code<<4;
       r2_code+=r1_code;
-      section_contents[current_section].push_back(80);//najvisi bajt
-      section_contents[current_section].push_back(r2_code);
-      section_contents[current_section].push_back(c_code);
-      section_contents[current_section].push_back(0);//najnizi bajt
       
-      
-      
+      pushInstruction(80,r2_code,c_code,0);
     }
     else if (instruction == "sub"){
       //2 registra
@@ -391,13 +331,8 @@ void Assembler::addLine(Line& line){
       int c_code = r2_code<<4;
       r2_code<<4;
       r2_code+=r1_code;
-      section_contents[current_section].push_back(81);//najvisi bajt
-      section_contents[current_section].push_back(r2_code);
-      section_contents[current_section].push_back(c_code);
-      section_contents[current_section].push_back(0);//najnizi bajt
       
-      
-      
+      pushInstruction(81,r2_code,c_code,0);
     }
     else if (instruction == "mul"){
       //2 reg, r1 = r1*r2
@@ -406,13 +341,8 @@ void Assembler::addLine(Line& line){
       int c_code = r2_code<<4;
       r2_code<<4;
       r2_code+=r1_code;
-      section_contents[current_section].push_back(82);//najvisi bajt
-      section_contents[current_section].push_back(r2_code);
-      section_contents[current_section].push_back(c_code);
-      section_contents[current_section].push_back(0);//najnizi bajt
       
-      
-      
+      pushInstruction(82,r2_code,c_code,0);
     }
     else if (instruction == "div"){
       //2 reg, r1 = r1/r2
@@ -421,13 +351,8 @@ void Assembler::addLine(Line& line){
       int c_code = r2_code<<4;
       r2_code<<4;
       r2_code+=r1_code;
-      section_contents[current_section].push_back(83);//najvisi bajt
-      section_contents[current_section].push_back(r2_code);
-      section_contents[current_section].push_back(c_code);
-      section_contents[current_section].push_back(0);//najnizi bajt
       
-      
-      
+      pushInstruction(83,r2_code,c_code,0);
     }
     else if (instruction == "not"){
       //1 reg, r1 = !r1
@@ -437,13 +362,8 @@ void Assembler::addLine(Line& line){
       int r2_code = parseRegister(operands[1]);
       r2_code<<4;
       r2_code+=r1_code;
-      section_contents[current_section].push_back(96);//najvisi bajt
-      section_contents[current_section].push_back(r2_code);
-      section_contents[current_section].push_back(0);//najnizi bajt
-      section_contents[current_section].push_back(0);
-      
-      
-      
+
+      pushInstruction(96,r2_code,0,0);
     }
     else if (instruction == "and"){
       //2 reg, r1= r1&r2
@@ -453,16 +373,8 @@ void Assembler::addLine(Line& line){
       int c_code = r2_code<<4;
       r2_code<<4;
       r2_code+=r1_code;
-
       
-      section_contents[current_section].push_back(97);//najvisi bajt
-      section_contents[current_section].push_back(r2_code);
-      section_contents[current_section].push_back(c_code);
-      section_contents[current_section].push_back(0);//najnizi bajt
-      
-      
-      
-
+      pushInstruction(97,r2_code,c_code,0);
     }
     else if (instruction == "or"){
       //2 reg , r1 = r1|r2
@@ -472,14 +384,7 @@ void Assembler::addLine(Line& line){
       r2_code<<4;
       r2_code+=r1_code;
 
-      
-      section_contents[current_section].push_back(98);//najvisi bajt
-      section_contents[current_section].push_back(r2_code);
-      section_contents[current_section].push_back(c_code);
-      section_contents[current_section].push_back(0);//najnizi bajt
-      
-      
-      
+      pushInstruction(98,r2_code,c_code,0);
     }
     else if (instruction == "xor"){
       //2 reg, r1 = r1^r2
@@ -489,13 +394,7 @@ void Assembler::addLine(Line& line){
       r2_code<<4;
       r2_code+=r1_code;
 
-      section_contents[current_section].push_back(99);//najvisi bajt
-      section_contents[current_section].push_back(r2_code);
-      section_contents[current_section].push_back(c_code);
-      section_contents[current_section].push_back(0);//najnizi bajt
-      
-      
-      
+      pushInstruction(99,r2_code,c_code,0);
     }
     else if (instruction == "shl"){
       //2 registra
@@ -508,13 +407,7 @@ void Assembler::addLine(Line& line){
       r2_code<<4;
       r2_code+=r1_code;
 
-      section_contents[current_section].push_back(112);//najvisi bajt
-      section_contents[current_section].push_back(r2_code);
-      section_contents[current_section].push_back(c_code);
-      section_contents[current_section].push_back(0);//najnizi bajt
-      
-      
-      
+      pushInstruction(112,r2_code,c_code,0);
     }
     else if (instruction == "shr"){
       //2 registra
@@ -523,32 +416,35 @@ void Assembler::addLine(Line& line){
       int c_code = r2_code<<4;
       r2_code<<4;
       r2_code+=r1_code;
-
       
-      section_contents[current_section].push_back(113);//najvisibajt
-      section_contents[current_section].push_back(r2_code);
-      section_contents[current_section].push_back(c_code);
-      section_contents[current_section].push_back(0);//najnizi bajt
-      
-      
-      
+      pushInstruction(113,r2_code,c_code,0);
     }
     /*
     Ovde treba da se napravi prvo funkcija za parsiranje operanada za rad
     sa memorijom
     */
-    else if (instruction == "ld"){
+    else if (instruction == "ld" || instruction == "st"){
       //ld operand, %gprD
-      
-      int reg_code = parseRegister(operands[1]);
+      int reg_index;
+      int operand_index;
+      if (instruction == "ld"){
+        reg_index = 1;
+        operand_index = 0;
+      }
+      else{
+        reg_index = 0;
+        operand_index = 1;
+      }
+    
+      int reg_code = parseRegister(operands[reg_index]);
+
       if (reg_code == -1){
         error = 1;
         end = 1;
         return;
       }
-
-     int mem_type = getMemType(operands[0]);
-     std::cout<<"mem type: "<<mem_type<<", operand: "<<operands[0]<<std::endl;
+     int mem_type = getMemType(operands[operand_index]);
+     
      /*
       0 - immed sym
       1 - immed literal
@@ -561,21 +457,14 @@ void Assembler::addLine(Line& line){
       -1 - error
       */
      int last_12b; 
+     int tempval;
      switch(mem_type){
       case 0:
         //immed symbol
-        
-        std::cout<<"Immed symbol: "<<operands[0]<<std::endl;
-
-        //ubacivanje binarnog u sekciju za prva 2 bajta
-        section_contents[current_section].push_back(145);
-        section_contents[current_section].push_back(reg_code<<4);
-        last_12b = parseMemoryOperand(operands[0],mem_type);
-
-        section_contents[current_section].push_back(last_12b>>8);
-        section_contents[current_section].push_back(last_12b&255);
-
-
+        last_12b = parseMemoryOperand(operands[operand_index],mem_type);
+        std::cout<<"Immed symbol: "<<operands[operand_index]<<std::endl;
+        if (instruction == "ld") pushInstruction(145,reg_code<<4,last_12b>>8,last_12b&255);
+        else if (instruction == "st") pushInstruction(128,0,(last_12b>>8)+(reg_code<<4),last_12b&255);
         break;
           //std::cout<<"INVALID SYMBOL: "<<operands[0]<<std::endl;
           //end = true;
@@ -583,60 +472,53 @@ void Assembler::addLine(Line& line){
           //return;
       case 1:
         //immed literal
-        std::cout<<"Immed literal: "<<operands[0]<<std::endl;
-        last_12b = parseMemoryOperand(operands[0],mem_type);
+        std::cout<<"Immed literal: "<<operands[operand_index]<<std::endl;
+        last_12b = parseMemoryOperand(operands[operand_index],mem_type);
         //1001 0001 DESTDIR 0000 0000 DDDD DDDD DDDD
-        section_contents[current_section].push_back(145);
-        section_contents[current_section].push_back(reg_code<<4);
-        section_contents[current_section].push_back(last_12b>>8);
-        section_contents[current_section].push_back(last_12b&255);
+        if (instruction == "ld") pushInstruction(145,reg_code<<4,last_12b>>8,last_12b&255);
+        else if (instruction == "st") pushInstruction(128,0,(last_12b>>8)+(reg_code<<4),last_12b&255);
+        
         break;
       case 2:
         //mem symbol
-        last_12b = parseMemoryOperand(operands[0],mem_type);
-        std::cout<<"Mem symbol: "<<operands[0]<<std::endl;
+        last_12b = parseMemoryOperand(operands[operand_index],mem_type);
+        std::cout<<"Mem symbol: "<<operands[operand_index]<<std::endl;
         
         //1001 0010 DESTREG 0000 0000 SYM SYM SYM
-        section_contents[current_section].push_back(146);
-        section_contents[current_section].push_back(reg_code<<4);
-        section_contents[current_section].push_back(last_12b>>8);
-        section_contents[current_section].push_back(last_12b&255);
-    
+        if (instruction == "ld") pushInstruction(146,reg_code<<4,last_12b>>8,last_12b&255);
+        //1000 0010 0000 0000 SRC SYM SYM SYM
+        else if (instruction == "st") pushInstruction(130,0,(last_12b>>8)+(reg_code<<4),last_12b&255);
+
         break;
       case 3:
         //mem literal
-        last_12b = parseMemoryOperand(operands[0],mem_type);
-        
-        
+        last_12b = parseMemoryOperand(operands[operand_index],mem_type);
+      
         //1001 0010 DESTREG 0000 0000 SYM SYM SYM
-        section_contents[current_section].push_back(146);
-        section_contents[current_section].push_back(reg_code<<4);
-        section_contents[current_section].push_back(last_12b>>8);
-        section_contents[current_section].push_back(last_12b&255);
+        if (instruction == "ld") pushInstruction(146,reg_code<<4,last_12b>>8,last_12b&255);
+        else if (instruction == "st") pushInstruction(130,0,(last_12b>>8)+(reg_code<<4),last_12b&255);
 
-        std::cout<<"mem literal: "<<operands[0]<<std::endl;
+        std::cout<<"mem literal: "<<operands[operand_index]<<std::endl;
         break;
       case 4:
         //reg
-        last_12b = parseMemoryOperand(operands[0],mem_type);
-        
-        
+        last_12b = parseMemoryOperand(operands[operand_index],mem_type);
+      
         //1001 0001 DEST SRC 0000 0000 0000 0000
-        section_contents[current_section].push_back(145);
-        section_contents[current_section].push_back((reg_code<<4) + last_12b);
-        section_contents[current_section].push_back(0);
-        section_contents[current_section].push_back(0);
-        std::cout<<"Reg: "<<operands[0]<<std::endl;
+        if (instruction == "ld") pushInstruction(145,(reg_code<<4) + last_12b,0,0);
+        //1001 0001 SRC DEST 0000 0000 0000 0000
+        else if (instruction == "st") pushInstruction(145,(last_12b<<4)+reg_code,0,0);
+        std::cout<<"Reg: "<<operands[operand_index]<<std::endl;
         break;
       case 5:
         //regind 1001 0010 DEST SRC 0000 0000 0000 0000
-        last_12b = parseMemoryOperand(operands[0],mem_type);
+        last_12b = parseMemoryOperand(operands[operand_index],mem_type);
         std::cout<<"last12 "<<last_12b<<std::endl;
-        section_contents[current_section].push_back(146);
-        section_contents[current_section].push_back((reg_code<<4) + last_12b);
-        section_contents[current_section].push_back(0);
-        section_contents[current_section].push_back(0);
-        std::cout<<"Regind: "<<operands[0]<<std::endl;
+        if (instruction == "ld") pushInstruction(146,(reg_code<<4) + last_12b,0,0);
+        //regind 1000 0000 0000 DEST SRC 0000 0000 0000
+        else if (instruction == "st") pushInstruction(128,last_12b,reg_code<<4,0);
+
+        std::cout<<"Regind: "<<operands[operand_index]<<std::endl;
         break;
       case 6:
         //regind sym
@@ -647,120 +529,14 @@ void Assembler::addLine(Line& line){
         //regind literal 1001 0010 DEST SRC 0000 OFFSET OFFSET OFFSET
         
 
-        last_12b = parseMemoryOperand(operands[0],mem_type);
-
-        std::cout<<"last_12b>>16"<<(last_12b>>16)<<"ono drugo: "<<(((last_12b << 20)>>20)<<4)<<std::endl;
-
-        
-        section_contents[current_section].push_back(146);
-        section_contents[current_section].push_back((reg_code<<4) + (last_12b>>16));
-        last_12b = last_12b<<20;
-        last_12b = last_12b>>20;
-        section_contents[current_section].push_back(last_12b>>8);
-        section_contents[current_section].push_back(last_12b & 255);
-
-        std::cout<<"Regindpom: "<<operands[0]<<std::endl;
-
-        break;
-      default:
-        std::cout<<"ERROR - BAD ADDRESSING"<<std::endl;
-        end = true;
-        error = true;
-        return;
-      
-     }
-  
-    }
-    else if (instruction == "st"){
-      int reg_code = parseRegister(operands[0]);
-      if (reg_code == -1){
-        error = 1;
-        end = 1;
-        return;
-      }
-
-      int mem_type = getMemType(operands[1]);
-
-      int last_12b; 
-     switch(mem_type){
-      case 0:
-        //immed symbol
-        
-        std::cout<<"Immed symbol: "<<operands[1]<<std::endl;
-
-        //st 1000 0000 0000 0000 SRC SYM SYM SYM
-        section_contents[current_section].push_back(128);
-        section_contents[current_section].push_back(0);
-        last_12b = parseMemoryOperand(operands[1],mem_type);
-        section_contents[current_section].push_back((last_12b>>8)+(reg_code<<4));
-        section_contents[current_section].push_back(last_12b&255);
-        break;
-      case 1:
-        //immed literal
-        section_contents[current_section].push_back(128);
-        section_contents[current_section].push_back(0);
-        last_12b = parseMemoryOperand(operands[1],mem_type);
-        section_contents[current_section].push_back((last_12b>>8)+(reg_code<<4));
-        section_contents[current_section].push_back(last_12b&255);
-        break;
-      case 2:
-        //mem symbol
-        //1000 0010 0000 0000 SRC SYM SYM SYM
-        last_12b = parseMemoryOperand(operands[1],mem_type);
-        std::cout<<"Mem symbol: "<<operands[1]<<std::endl;
-        
-        
-        section_contents[current_section].push_back(130);
-        section_contents[current_section].push_back(0);
-        section_contents[current_section].push_back((last_12b>>8)+(reg_code<<4));
-        section_contents[current_section].push_back(last_12b&255);
-    
-        break;
-      case 3:
-        last_12b = parseMemoryOperand(operands[1],mem_type);
-        section_contents[current_section].push_back(130);
-        section_contents[current_section].push_back(0);
-        section_contents[current_section].push_back((last_12b>>8)+(reg_code<<4));
-        section_contents[current_section].push_back(last_12b&255);
-        break;
-      case 4:
-        //reg
-        last_12b = parseMemoryOperand(operands[1],mem_type);
-        
-        
-        //1001 0001 DEST SRC 0000 0000 0000 0000
-        section_contents[current_section].push_back(145);
-        section_contents[current_section].push_back((last_12b<<4)+reg_code);
-        section_contents[current_section].push_back(0);
-        section_contents[current_section].push_back(0);
-        std::cout<<"Reg: "<<operands[1]<<std::endl;
-        break;
-      case 5:
-        //regind 1000 0000 0000 DEST SRC 0000 0000 0000
-        last_12b = parseMemoryOperand(operands[1],mem_type);
-        section_contents[current_section].push_back(128);
-        section_contents[current_section].push_back(last_12b);
-        section_contents[current_section].push_back(reg_code<<4);
-        section_contents[current_section].push_back(0);
-  
-        break;
-      case 6:
-        //regind sym
-        // ????
-        
-        break;
-      case 7:
+        last_12b = parseMemoryOperand(operands[operand_index],mem_type);
+        tempval = last_12b<<20;
+        tempval = tempval>>20;
+        if (instruction == "ld") pushInstruction(146,(reg_code<<4) + (last_12b>>16),tempval>>8,tempval&255);
         //regind literal 1000 0000 0000 DEST SRC OFF OFF OFF
-        
+        else if (instruction == "st") pushInstruction(128,last_12b>>16,(reg_code<<4) + tempval>>8,tempval & 255);
 
-        last_12b = parseMemoryOperand(operands[1],mem_type);
-        section_contents[current_section].push_back(128);
-        section_contents[current_section].push_back(last_12b>>16);
-        last_12b = last_12b<<20;
-        last_12b = last_12b>>20;
-        section_contents[current_section].push_back((reg_code<<4) + last_12b>>8 );
-        section_contents[current_section].push_back(last_12b & 255);
-
+        std::cout<<"Regindpom: "<<operands[operand_index]<<std::endl;
 
         break;
       default:
@@ -770,9 +546,9 @@ void Assembler::addLine(Line& line){
         return;
       
      }
-
-
+  
     }
+    
     else if (instruction == "csrrd"){
       //2 reg
       //1001 0000
@@ -1109,7 +885,7 @@ int Assembler::handleSymbol(std::string sym){
         }
       }
       else{
-        symbol_table[sym] = SymbolTableEntry(0,"undef",0,0,false,false);
+        symbol_table[sym] = SymbolTableEntry(0,"und",0,0,false,false);
         symbol_table[sym].flink = new ForwardRefsEntry();
         symbol_table[sym].flink->next = nullptr;
         symbol_table[sym].flink->patch = location_counter-1;
@@ -1117,4 +893,11 @@ int Assembler::handleSymbol(std::string sym){
 
         return 0;
       }
+}
+
+void Assembler::pushInstruction(char first, char second, char third, char fourth){
+  section_contents[current_section].push_back(first);
+  section_contents[current_section].push_back(second);
+  section_contents[current_section].push_back(third);
+  section_contents[current_section].push_back(fourth);
 }

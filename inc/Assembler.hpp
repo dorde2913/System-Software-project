@@ -122,6 +122,7 @@ Atributi asemblera
   int parseMemoryOperand(std::string symbol,int type);
   int getMemType(std::string operand);
   int handleSymbol(std::string sym);
+  void pushInstruction(char first,char second, char third, char fourth);
 };
 
 #endif
