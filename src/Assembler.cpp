@@ -548,6 +548,7 @@ void Assembler::addLine(Line& line){
       }
 
      int mem_type = getMemType(operands[0]);
+     std::cout<<"mem type: "<<mem_type<<", operand: "<<operands[0]<<std::endl;
      /*
       0 - immed sym
       1 - immed literal
@@ -598,45 +599,74 @@ void Assembler::addLine(Line& line){
         break;
       case 2:
         //mem symbol
-        if (parseMemoryOperand(operands[0],mem_type)){
-          std::cout<<"Mem symbol: "<<operands[0]<<std::endl;
-        }
-        else{
-          std::cout<<"INVALID SYMBOL: "<<operands[0]<<std::endl;
-          end = true;
-          error = true;
-          return;
-        }
+        last_12b = parseMemoryOperand(operands[0],mem_type);
+        std::cout<<"Mem symbol: "<<operands[0]<<std::endl;
         
+        //1001 0010 DESTREG 0000 0000 SYM SYM SYM
+        section_contents[current_section].push_back(146);
+        section_contents[current_section].push_back(reg_code<<4);
+        section_contents[current_section].push_back(last_12b>>8);
+        section_contents[current_section].push_back(last_12b&255);
+    
         break;
       case 3:
         //mem literal
+        last_12b = parseMemoryOperand(operands[0],mem_type);
+        
+        
+        //1001 0010 DESTREG 0000 0000 SYM SYM SYM
+        section_contents[current_section].push_back(146);
+        section_contents[current_section].push_back(reg_code<<4);
+        section_contents[current_section].push_back(last_12b>>8);
+        section_contents[current_section].push_back(last_12b&255);
+
         std::cout<<"mem literal: "<<operands[0]<<std::endl;
         break;
       case 4:
         //reg
+        last_12b = parseMemoryOperand(operands[0],mem_type);
+        
+        
+        //1001 0001 DEST SRC 0000 0000 0000 0000
+        section_contents[current_section].push_back(145);
+        section_contents[current_section].push_back((reg_code<<4) + last_12b);
+        section_contents[current_section].push_back(0);
+        section_contents[current_section].push_back(0);
         std::cout<<"Reg: "<<operands[0]<<std::endl;
         break;
       case 5:
-        //regind
+        //regind 1001 0010 DEST SRC 0000 0000 0000 0000
+        last_12b = parseMemoryOperand(operands[0],mem_type);
+        std::cout<<"last12 "<<last_12b<<std::endl;
+        section_contents[current_section].push_back(146);
+        section_contents[current_section].push_back((reg_code<<4) + last_12b);
+        section_contents[current_section].push_back(0);
+        section_contents[current_section].push_back(0);
         std::cout<<"Regind: "<<operands[0]<<std::endl;
         break;
       case 6:
         //regind sym
-        if (parseMemoryOperand(operands[0],mem_type)){
-          std::cout<<"Regind sym: "<<operands[0]<<std::endl;
-        }
-        else{
-          std::cout<<"INVALID SYMBOL: "<<operands[0]<<std::endl;
-          end = true;
-          error = true;
-          return;
-        }
+        // ????
         
         break;
       case 7:
-        //regind literal
-        std::cout<<"Regind literal: "<<operands[0]<<std::endl;
+        //regind literal 1001 0010 DEST SRC 0000 OFFSET OFFSET OFFSET
+        
+
+        last_12b = parseMemoryOperand(operands[0],mem_type);
+
+        std::cout<<"last_12b>>16"<<(last_12b>>16)<<"ono drugo: "<<(((last_12b << 20)>>20)<<4)<<std::endl;
+
+        
+        section_contents[current_section].push_back(146);
+        section_contents[current_section].push_back((reg_code<<4) + (last_12b>>16));
+        last_12b = last_12b<<20;
+        last_12b = last_12b>>20;
+        section_contents[current_section].push_back(last_12b>>8);
+        section_contents[current_section].push_back(last_12b & 255);
+
+        std::cout<<"Regindpom: "<<operands[0]<<std::endl;
+
         break;
       default:
         std::cout<<"ERROR - BAD ADDRESSING"<<std::endl;
@@ -896,7 +926,7 @@ int Assembler::getMemType(std::string operand){
     std::regex register_pattern(R"(%[a-zA-Z0-9_]+)");
     std::regex memory_register_pattern(R"(\[%[a-zA-Z0-9_]+\])");
     std::regex memory_register_symbol_pattern(R"(\[%[a-zA-Z0-9_]+\+[a-zA-Z_][a-zA-Z0-9_]*\])");
-    std::regex memory_register_literal_pattern(R"(\[%[a-zA-Z0-9_]+\+[0-9]+\])");
+    std::regex memory_register_literal_pattern(R"(\[\s*%\w+\s*\+\s*[0-9]+\s*\])");
 
     if (std::regex_match(operand, immediate_symbol_pattern)) {
         return operand[0] == '$' ? 0 : 2;
@@ -920,7 +950,8 @@ int Assembler::parseMemoryOperand(std::string symbol,int type){
   int ret;
   switch(type){
     case 0:
-      //immed symbol
+    case 2:
+      // symbol
       for (char c:symbol){
         if (c!='$'){
           temp+=c;
@@ -930,6 +961,7 @@ int Assembler::parseMemoryOperand(std::string symbol,int type){
       
       break;
     case 1:
+    case 3:
       //immed literal
       for (char c:symbol){
         if (c!='$'){
@@ -938,6 +970,39 @@ int Assembler::parseMemoryOperand(std::string symbol,int type){
       }
       ret = stoi(temp);
       std::cout<<"Parsed literal: "<<ret<<std::endl;
+      return ret;
+      break;
+    case 4:
+    case 5:
+      for (char c:symbol){
+        if (c!='[' && c!=']'){
+          temp+=c;
+        }
+      }
+      std::cout<<"register: "<<temp<<std::endl;
+      return parseRegister(temp);
+      break;
+
+    case 7:
+      char* ptr = &symbol[0];
+      while(*ptr != '%')ptr++;
+      while(*ptr!='+'){
+        if (*ptr!=' ')temp+=*ptr;
+        ptr++;
+      }
+      //<<20
+      ret = parseRegister(temp);
+      temp = "";
+      ret = ret<<16;
+
+      while (*ptr!='\0'){
+        if (*ptr!=' ' && *ptr!=']'){
+          temp+=*ptr;
+        }
+        ptr++;
+      }
+
+      ret+=stoi(temp);
       return ret;
       break;
   } 
