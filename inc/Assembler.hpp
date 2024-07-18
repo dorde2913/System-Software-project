@@ -7,6 +7,8 @@
 #include <regex>
 #include <iomanip>
 #include <bitset>
+#include <iostream>
+#include <fstream>
 
 #include "Parser.hpp"
 
@@ -42,6 +44,7 @@ sta znam
     std::string section;
     ForwardRefsEntry* next;//sledeci entry
   };
+  #pragma pack(push,1)
   struct SymbolTableEntry{
     /************************************************
     po 1 entry za svaki simbol u fajlu
@@ -67,8 +70,40 @@ sta znam
     SymbolTableEntry(int value,std::string section,int size = 0, int type = NOTYPE, bool is_global = false, bool defined = true )
                 : value(value),section(section),size(size), type(type), is_global(is_global),defined(defined){}
 
-    
+    void serialize(std::ofstream& os) const {
+        /*
+        size_t name_length = name.size();
+        outfile.write(reinterpret_cast<const char*>(&name_length), sizeof(name_length));
+
+        // Write the name string
+        outfile.write(name.c_str(), name_length);
+        */
+        os.write(reinterpret_cast<const char*>(&value), sizeof(value));
+        os.write(reinterpret_cast<const char*>(&size), sizeof(size));
+        os.write(reinterpret_cast<const char*>(&type), sizeof(type));
+        os.write(reinterpret_cast<const char*>(&is_global), sizeof(is_global));
+        
+        size_t section_string_length = section.size();
+        os.write(reinterpret_cast<const char*>(&section_string_length), sizeof(section_string_length));
+        os.write(section.c_str(), section_string_length);
+        
+        os.write(reinterpret_cast<const char*>(&defined), sizeof(defined));
+        os.write(reinterpret_cast<const char*>(&is_extern), sizeof(is_extern));
+    }
+
+    // Deserialize function
+    void deserialize(std::istream& is) {
+        is.read(reinterpret_cast<char*>(&value), sizeof(value));
+        is.read(reinterpret_cast<char*>(&size), sizeof(size));
+        is.read(reinterpret_cast<char*>(&type), sizeof(type));
+        is.read(reinterpret_cast<char*>(&is_global), sizeof(is_global));
+        is.read(reinterpret_cast<char*>(&section), sizeof(section));
+        is.read(reinterpret_cast<char*>(&defined), sizeof(defined));
+        is.read(reinterpret_cast<char*>(&is_extern), sizeof(is_extern));
+        flink = nullptr; // Reset the flink pointer
+    }
   };
+  #pragma pack(pop)
   struct RelocationTableEntry{
     int offset; //lokacija gde se izvrsava prepravka, offset u odnosu na pocetak datoteke
     std::string symbol; //indeks simbola u tabeli simbola prema kojem vrsimo relokaciju
@@ -112,7 +147,7 @@ Atributi asemblera
   /**************************
    * Metode asemblera
   ***************************/
-  void startAssembly(std::string input_file, std::string output_file);
+  void startAssembly(std::string input_file, std::string output_file,bool print);
   void addLine(Line& line);
   bool solveSymbols();
   
@@ -123,6 +158,7 @@ Atributi asemblera
   int getMemType(std::string operand);
   int handleSymbol(std::string sym);
   void pushInstruction(char first,char second, char third, char fourth);
+  void writeToOutput();
 };
 
 #endif

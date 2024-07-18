@@ -1,7 +1,7 @@
 #include "../inc/Assembler.hpp"
 
 
-void Assembler::startAssembly(std::string input_file,std::string output_file){
+void Assembler::startAssembly(std::string input_file,std::string output_file,bool print){
   this->file_name = input_file;
   this->output_name = output_file;
 
@@ -14,13 +14,14 @@ void Assembler::startAssembly(std::string input_file,std::string output_file){
     this->addLine(line);
     if (this->end) break;
   }
-  
+  std::cout<<print<<std::endl;
   bool solved = this->solveSymbols();
   if (!solved || error){
     std::cout<<"ERROR"<<std::endl;
   }
   else{
-    printTables();
+    if (print)printTables();
+    writeToOutput();
   }
   
 }
@@ -900,4 +901,39 @@ void Assembler::pushInstruction(char first, char second, char third, char fourth
   section_contents[current_section].push_back(second);
   section_contents[current_section].push_back(third);
   section_contents[current_section].push_back(fourth);
+}
+
+void Assembler::writeToOutput(){
+  /*
+  Znaci ide velicina symboltable, pa ime sekcije,velicina sadrzaja, sadrzaj sekcije,velicina tabele, relok tabela 
+  */
+  std::ofstream outfile("./"+output_name, std::ios::binary);
+    if (!outfile) {
+        std::cerr << "Error opening file for writing: " << output_name << std::endl;
+        return;
+    }
+
+    // Write the number of entries
+    size_t size = symbol_table.size();
+    outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
+
+    // Write each entry
+    for (const auto& pair : symbol_table) {
+        const std::string& name = pair.first;
+        const SymbolTableEntry& entry = pair.second;
+
+        // Write the length of the name string
+        size_t name_length = name.size();
+        outfile.write(reinterpret_cast<const char*>(&name_length), sizeof(name_length));
+
+        // Write the name string
+        outfile.write(name.c_str(), name_length);
+
+        // Write the symbol table entry
+        entry.serialize(outfile);
+       
+    }
+
+    outfile.close();
+
 }
