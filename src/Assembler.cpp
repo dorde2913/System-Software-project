@@ -913,7 +913,7 @@ void Assembler::writeToOutput(){
         return;
     }
 
-    // Write the number of entries
+    // ubacujemo tabelu simbola u fajl, prvo velicina 
     size_t size = symbol_table.size();
     outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
 
@@ -921,18 +921,49 @@ void Assembler::writeToOutput(){
     for (const auto& pair : symbol_table) {
         const std::string& name = pair.first;
         const SymbolTableEntry& entry = pair.second;
-
-        // Write the length of the name string
         size_t name_length = name.size();
         outfile.write(reinterpret_cast<const char*>(&name_length), sizeof(name_length));
-
-        // Write the name string
         outfile.write(name.c_str(), name_length);
-
-        // Write the symbol table entry
         entry.serialize(outfile);
-       
     }
+
+    //sada reloc tabele
+    size = relocation_table.size();
+    outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
+    for (auto& entry:relocation_table){
+      size = entry.first.size();
+      outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
+      outfile.write(entry.first.c_str(),size);
+      //ubacili smo ime sekcije
+      size = entry.second.size();
+      outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
+      
+      //ubacili smo ime sekcije
+      for (auto& sym: entry.second){
+        size = sym.symbol.size();
+        outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
+        outfile.write(sym.symbol.c_str(),size);
+
+        outfile.write(reinterpret_cast<const char*>(&sym.addend), sizeof(sym.addend));
+        outfile.write(reinterpret_cast<const char*>(&sym.offset), sizeof(sym.offset));
+      }
+    }
+
+    size = section_contents.size();
+    outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
+    for (auto& entry:section_contents){
+      //ime sekcije
+      size = entry.first.size();
+      outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
+      outfile.write(entry.first.c_str(),size);
+
+      size = entry.second.size();
+      outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
+      for (auto& byte: entry.second){
+        outfile.write(reinterpret_cast<const char*>(&byte), sizeof(byte));
+      }
+    }
+
 
     outfile.close();
 
