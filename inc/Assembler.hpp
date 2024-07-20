@@ -132,7 +132,7 @@ Atributi asemblera
 
   //relokacionih zapisa moze biti vise za jednu sekciju, mozemo svaka sekcija -> vektor zapisa
   std::unordered_map<std::string,std::vector<RelocationTableEntry>> relocation_table;
-
+  std::vector<std::string> debug_instructions;
   //forwardrefs je u tabeli simbola tkd nema svoj atribut ovde
   int location_counter = 0;
   std::string current_section = "und";
@@ -152,13 +152,18 @@ Atributi asemblera
   bool solveSymbols();
   
   void printTables();
-  void parseJumpOperands(std::string operand,Line line);
+  
   int parseRegister(std::string reg_name);
   int parseMemoryOperand(std::string symbol,int type);
   int getMemType(std::string operand);
   int handleSymbol(std::string sym);
   void pushInstruction(char first,char second, char third, char fourth);
   void writeToOutput();
+  void push32bit(int value);
+  void handleLabel(std::string label);
+  void handleDirective(std::string directive, std::vector<std::string> operands);
+  void loadOperandToRegister(int reg_code,std::string operand,std::string instruction);
+  int getRandomReg(int used);
 };
 
 #endif

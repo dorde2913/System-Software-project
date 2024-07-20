@@ -12,7 +12,10 @@ ASSEMBLER_SRC = $(patsubst %,$(SRCDIR)/%,$(_ASSEMBLER_SRC))
 
 TARGET_ASSEMBLER = assembler
 
-_LINKER_SRC = linker_main.cpp
+_LINKER_DEPS = Linker.hpp
+LINKER_DEPS = $(patsubst %,$(IDIR)/%,$(_LINKER_DEPS))
+
+_LINKER_SRC = Linker_main.cpp Linker.cpp
 LINKER_SRC = $(patsubst %,$(SRCDIR)/%,$(_LINKER_SRC))
 
 TARGET_LINKER = linker

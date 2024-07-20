@@ -26,7 +26,7 @@ int main(int argc, char* argv[]){
   else {
     print=false;
   }
-  std::cout<<"print: "<<print<<std::endl;
+  //std::cout<<"print: "<<print<<std::endl;
   Assembler a;
   a.startAssembly(input_file,output,print);
   

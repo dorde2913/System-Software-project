@@ -17,6 +17,9 @@ void Assembler::startAssembly(std::string input_file,std::string output_file,boo
   std::cout<<print<<std::endl;
   bool solved = this->solveSymbols();
   if (!solved || error){
+    std::cout<<"solved: "<<solved<<std::endl;
+    std::cout<<"error: "<<error<<std::endl;
+    
     std::cout<<"ERROR"<<std::endl;
   }
   else{
@@ -34,161 +37,30 @@ void Assembler::addLine(Line& line){
     //obrada labeli
     //imamo labelu -> to je definicija simbola
     std::string label = line.getLabel();
-    if (symbol_table.count(label)){//ima ulaz u tabeli simbola, ubacujemo definiciju
-      symbol_table[label].defined = true;
-      symbol_table[label].section = current_section;
-      symbol_table[label].value = location_counter;
-
-      ForwardRefsEntry* temp = symbol_table[label].flink;
-      while(temp){
-        section_contents[temp->section][temp->patch-1] = symbol_table[label].value>>8;
-        section_contents[temp->section][temp->patch] = symbol_table[label].value&255;
-        relocation_table[current_section].push_back(RelocationTableEntry(
-          temp->patch,symbol_table[label].section,location_counter
-        ));
-        temp = temp->next; 
-      }
-      symbol_table[label].flink = nullptr;
-    }
-    else{
-      //prvi put vidimo
-      symbol_table[label] = SymbolTableEntry(
-        location_counter,current_section
-      );
-    }
+    handleLabel(label);
   }
 
   if (line.hasDirective()){
     std::string directive = line.getDirective().first;
     std::vector<std::string> operands = line.getDirective().second;
-    
-    
-    if (directive == ".global"){
-      //obrada global, operandi su 
-      for (std::string& operand:operands){
-        this->symbol_table[operand] = SymbolTableEntry(0,"tbd",0,NOTYPE,true);
-      }
-    }
-    if (directive == ".extern"){
-      //obrada extern, oprandi su SIMBOLI
-      for (std::string& operand:operands){
-        this->symbol_table[operand] = SymbolTableEntry(0,"und",0,NOTYPE,true);
-        this->symbol_table[operand].is_extern = true;
-      }
-    }
-    if (directive == ".section"){
-      //obrada section, operand je IME SEKCIJE
-      if (current_section !="und"){
-        //ako je und onda samo pravimo novu, und nema velicinu 
-        symbol_table[current_section].size = location_counter - symbol_table[current_section].value;
-      }
-      current_section = operands.front();//ima 1 element ovde tkd ga vadimo kako god
-      location_counter = 0;
-
-      symbol_table[current_section] = SymbolTableEntry(0,current_section,0,SECTION,false);
-      section_contents[current_section] = {};
-      //relocation_table[current_section] = ;
-      
-    }
-
-    if (directive == ".word"){
-      //obrada word, operandi su lista simbola i/ili literala
-      for (std::string operand:operands){
-        //da li je simbol ili literal?
-        if (line.isLiteral(operand)){
-          int value = stoi(operand);
-          //podaci su 2 bajta, little endian znaci nizi bajt niza adresa
-          int low = value & 255;
-          int high = value >> 8;
-          section_contents[current_section].push_back(low);
-          section_contents[current_section].push_back(high);
-          //nisam siguran da je ovo dobro, mozda naopako
-        }
-        else{
-          //ipak je simbol, treba nam vrednost simbola,
-          //ako je simbol definisan, pravimo ulaz u relokacionoj tabeli
-          //ako nije definisan, pravimo ulaz u tabeli simbola sa defined = false;
-          if (symbol_table.count(operand)){// da li postoji bar 1 ulaz za ovaj simbol?
-            if (symbol_table[operand].defined){
-              int offset = location_counter;
-              std::string symbol;
-              int addend;
-
-              if (symbol_table[operand].is_global){
-                symbol = operand;
-                addend = 0; //ne treba nam ovo za globalni
-              }
-              else{
-                symbol = symbol_table[operand].section;
-                addend = symbol_table[operand].value;
-              }
-
-              relocation_table[symbol_table[operand].section].push_back(
-                RelocationTableEntry(offset,symbol,addend)
-              );
-            }
-            else{
-              ForwardRefsEntry* temp = symbol_table[operand].flink;
-              if (!temp){
-                symbol_table[operand].flink = new ForwardRefsEntry();
-                temp->patch = location_counter;
-                temp->section = current_section;
-                temp->next = nullptr;
-
-              }
-              else{
-                while(temp->next)temp=temp->next;
-                temp->next = new ForwardRefsEntry();
-                temp->patch = location_counter;
-                temp->section = current_section;
-                temp->next = nullptr;
-              }
-            }
-          }
-          else{
-            symbol_table[operand] = SymbolTableEntry(
-              0,"und",0,NOTYPE,false,false
-            );
-            symbol_table[operand].flink = new ForwardRefsEntry();
-            symbol_table[operand].flink->section = current_section;
-            symbol_table[operand].flink->patch = location_counter;
-            symbol_table[operand].flink->next = nullptr;
-          }
-          //velicina svega je 2B, pa pushujemo 2B u sekciju
-          section_contents[current_section].push_back(0);
-          section_contents[current_section].push_back(0);
-        }
-      }
-    }
-    if (directive == ".skip"){
-      //obrada skip, operand je literal koji predstavlja broj bajtova koji se 
-      int literal_value = stoi(operands.front());
-      for (int i=0;i<literal_value;i++){
-        section_contents[current_section].push_back(0);
-      }
-      location_counter += literal_value;
-    }
-    if (directive == ".end"){
-      //obrada end, ne treba da ima operand
-      symbol_table[current_section].size = location_counter - symbol_table[current_section].value;
-      this->end = true;
-      return;
-    }
-    
+    handleDirective(directive,operands);
   }
 
   if (line.hasInstruction()){
     
+
     std::string instruction = line.getInstruction().first;
     
     std::vector<std::string> operands = line.extractOperands(line.getInstruction().second);
-
+    if (instruction!="iret" && instruction!="call" && instruction != "jmp")debug_instructions.push_back(instruction);
+    
     //sve instrukcije su velicine 4 bajta, te mozemo odmah da lepo dodamo
     location_counter +=4;
     //U INSTRUKCIJAMA JE SOURCE PA DEST ??
     if (instruction == "halt"){
       //zaustavljanje izvrsavanja, nema operande
       pushInstruction(0,0,0,0);
+      
     }
     else if (instruction == "int"){
       //softverski prekid, nema op
@@ -206,22 +78,26 @@ void Assembler::addLine(Line& line){
       location_counter+=4;
       //pop pc
       pushInstruction(147,254,0,4);
+      debug_instructions.push_back("pop pc (iret)");
 
       pushInstruction(151,14,0,4);
+      debug_instructions.push_back("pop status (iret)");
     }
     else if (instruction == "call"){
       //jedan operand, adresa funkcije koja se poziva
       //push pc, pc<= operand
-      //ovo moze preko 1 instrukcije, samo treba da se resi vrednost operanda
-
-      //operand je ili simbol ili literal, idu u D either way
-      //00100000 00000000 0000gornja4 donjih8D
+      int sp = 14;
+      int pc = 15;
+      sp = sp<<4;
+      sp+=pc;
+      //push pc
+      
+      pushInstruction(129,sp,0,-4);
+      debug_instructions.push_back("push pc (call)");
+      //sada u zavisnosti od velicine operand ubacujemo u pc
       std::string operand = operands.front();
-      //ovaj deo ispod mozemo da stavimo u funkciju parseJumpOperands()
-      section_contents[current_section].push_back(32);
-      section_contents[current_section].push_back(0);
-      parseJumpOperands(operand,line);
-    
+      loadOperandToRegister(pc,operand,instruction);
+
     }
     else if (instruction == "ret"){
       //nema operanada, radi se pop pc
@@ -231,9 +107,9 @@ void Assembler::addLine(Line& line){
     else if (instruction == "jmp"){
       //pc<=operand, 1 operand
       std::string operand = operands.front();
-      section_contents[current_section].push_back(48);//najvisi bajt
-      section_contents[current_section].push_back(0);
-      parseJumpOperands(operand,line);
+      int pc = 15;
+      loadOperandToRegister(pc,operand,instruction);
+      //parseJumpOperands(operand);
     }
     else if (instruction == "beq"){
       //2 registra, operand koji predstavlja adresu za skok
@@ -249,7 +125,9 @@ void Assembler::addLine(Line& line){
 
       section_contents[current_section].push_back(49);
       section_contents[current_section].push_back(reg_code1);
-      parseJumpOperands(operand,line);
+      section_contents[current_section].push_back(reg_code1);
+      section_contents[current_section].push_back(reg_code1);
+      //mpOperands(operand);
     }
     else if (instruction == "bne"){
       std::string reg1 = operands[0];
@@ -262,7 +140,9 @@ void Assembler::addLine(Line& line){
       reg_code1+=reg_code2;
       section_contents[current_section].push_back(50);
       section_contents[current_section].push_back(reg_code1);
-      parseJumpOperands(operand,line);
+      section_contents[current_section].push_back(reg_code1);
+      section_contents[current_section].push_back(reg_code1);
+      //parseJumpOperands(operand);
     }
     else if (instruction == "bgt"){
       std::string reg1 = operands[0];
@@ -275,7 +155,9 @@ void Assembler::addLine(Line& line){
       reg_code1+=reg_code2;
       section_contents[current_section].push_back(51);
       section_contents[current_section].push_back(reg_code1);
-      parseJumpOperands(operand,line);
+      section_contents[current_section].push_back(reg_code1);
+      section_contents[current_section].push_back(reg_code1);
+      //parseJumpOperands(operand);
     }
     else if (instruction == "push"){
       //jedan operand koji je neki registar,
@@ -457,6 +339,7 @@ void Assembler::addLine(Line& line){
       7 - regindpom literal
       -1 - error
       */
+     std::cout<<"Addressing: "<<mem_type<<std::endl;
      int last_12b; 
      int tempval;
      switch(mem_type){
@@ -650,93 +533,34 @@ void Assembler::printTables(){
   */
   int count = 0;
   for (auto& section:section_contents){
+    count = 0;
     std::cout<<section.first<<std::endl;
+    int i=0;
     for (auto& b:section.second){
-      if (count!=0 && count%32 == 0)std::cout<<std::endl;
+      if (count!=0 && count%32 == 0){
+        std::cout<<std::endl;
+      }
       std::cout<<std::bitset<8>(b)<<" ";
       count+=8;
+      if (count!=0 && count%32 == 0){
+        std::cout<<debug_instructions[i];
+        i++;
+      }
     }
     std::cout<<std::endl;
   }
 }
 
-void Assembler::parseJumpOperands(std::string operand,Line line){
 
-
-  if (line.isLiteral(operand)){
-      //literal je
-    int literal = stoi(operand);
-    int bits_11_to_8 = (literal >> 8) & 0xF;
-    int lowest_8 = literal & 0xFF;
-
-    section_contents[current_section].push_back(bits_11_to_8);
-    section_contents[current_section].push_back(lowest_8);
-    
-    
-  }
-  else{
-    //prvo proveravamo da li je simbol definisan
-    
-    if (symbol_table.count(operand) && symbol_table[operand].defined){
-      //ako je global addend = 0 i value je vrednost simbola,
-      //ako nije global value je sekcija i addend je 
-      int offset = location_counter-1;//4. bajt instrukcije
-      std::string sym;
-      int addend;
-
-      if (symbol_table[operand].is_global){
-        sym = operand;
-        addend = 0;
-      }
-      else{
-        sym = symbol_table[operand].section;
-        addend = symbol_table[operand].value;
-      }
-      section_contents[current_section].push_back(addend>>8);
-      section_contents[current_section].push_back(addend&255);
-
-      relocation_table[current_section].push_back(RelocationTableEntry(
-        offset,sym,addend
-      ));
-    }
-    else{
-      //simbol ili nije u tabeli ili je defined = false;
-      section_contents[current_section].push_back(0);
-      section_contents[current_section].push_back(0);
-      if (symbol_table.count(operand)){
-        //dodajemo forwardlink
-        ForwardRefsEntry* temp = symbol_table[operand].flink;
-        if (!temp){
-          symbol_table[operand].flink = new ForwardRefsEntry();
-          symbol_table[operand].flink->next = nullptr;
-          symbol_table[operand].flink->section = current_section;
-          symbol_table[operand].flink->patch = location_counter-1;
-        }
-        else{
-          while(temp->next)temp=temp->next;
-          temp->next = new ForwardRefsEntry();
-          temp->next->next = nullptr;
-          temp->next->section = current_section;
-          temp->next->patch = location_counter-1;
-        }
-      }
-      else{
-        symbol_table[operand] = SymbolTableEntry(
-          0,current_section,0,0,false,true
-        );
-        symbol_table[operand].flink = new ForwardRefsEntry();
-        symbol_table[operand].flink->next = nullptr;
-        symbol_table[operand].flink->section = current_section;
-        symbol_table[operand].flink->patch = location_counter-1;
-      }
-    }
-  }
-}
 int Assembler::parseRegister(std::string register_name){
   //treba da se doda za cause i jos neke
+  //std::cout<<"Parsiramo registar: "<<register_name<<std::endl;
   if (register_name == "%cause") return 0; //ovo nije ista instrukcija tkd moze da se preklapa valjda
   if (register_name == "%handler") return 1;
   if (register_name == "%status") return 2;
+
+  if (register_name == "%sp") return 14;
+  if (register_name == "%pc") return 15;
 
   if (register_name == "%r0") return 0;
   if (register_name == "%r1") return 1;
@@ -778,28 +602,33 @@ int Assembler::getMemType(std::string operand){
   * svuda mogu da budu ili simbol ili literal, ako je simbol mora biti definisan i manji od 2^12 
 
   */
-   std::regex immediate_symbol_pattern(R"(\$?[a-zA-Z_][a-zA-Z0-9_]*)");
-    std::regex immediate_literal_pattern(R"(\$?[0-9]+)");
-    std::regex register_pattern(R"(%[a-zA-Z0-9_]+)");
-    std::regex memory_register_pattern(R"(\[%[a-zA-Z0-9_]+\])");
-    std::regex memory_register_symbol_pattern(R"(\[%[a-zA-Z0-9_]+\+[a-zA-Z_][a-zA-Z0-9_]*\])");
-    std::regex memory_register_literal_pattern(R"(\[\s*%\w+\s*\+\s*[0-9]+\s*\])");
+  std::cout<<"parsing addressing from operand: "<<operand<<std::endl;
 
-    if (std::regex_match(operand, immediate_symbol_pattern)) {
-        return operand[0] == '$' ? 0 : 2;
-    } else if (std::regex_match(operand, immediate_literal_pattern)) {
-        return operand[0] == '$' ? 1 : 3;
-    } else if (std::regex_match(operand, register_pattern)) {
-        return 4;
-    } else if (std::regex_match(operand, memory_register_pattern)) {
-        return 5;
-    } else if (std::regex_match(operand, memory_register_symbol_pattern)) {
-        return 6;
-    } else if (std::regex_match(operand, memory_register_literal_pattern)) {
-        return 7;
-    } else {
-        return -1;
-    }
+  std::regex immediate_symbol_pattern(R"(\$?[a-zA-Z_][a-zA-Z0-9_]*)");
+  std::regex immediate_literal_pattern(R"(\$?(?:0x[0-9a-fA-F]+|[0-9]+))");
+  
+  std::regex register_pattern(R"(%[a-zA-Z0-9_]+)");
+  std::regex memory_register_pattern(R"(\[%[a-zA-Z0-9_]+\])");
+  std::regex memory_register_symbol_pattern(R"(\[%[a-zA-Z0-9_]+\+[a-zA-Z_][a-zA-Z0-9_]*\])");
+
+  std::regex memory_register_literal_pattern(R"(\[\s*%\w+\s*\+\s*(?:0x[0-9a-fA-F]+|[0-9]+)\s*\])");
+
+
+  if (std::regex_match(operand, immediate_symbol_pattern)) {
+      return operand[0] == '$' ? 0 : 2;
+  } else if (std::regex_match(operand, immediate_literal_pattern)) {
+      return operand[0] == '$' ? 1 : 3;
+  } else if (std::regex_match(operand, register_pattern)) {
+      return 4;
+  } else if (std::regex_match(operand, memory_register_pattern)) {
+      return 5;
+  } else if (std::regex_match(operand, memory_register_symbol_pattern)) {
+      return 6;
+  } else if (std::regex_match(operand, memory_register_literal_pattern)) {
+      return 7;
+  } else {
+      return -1;
+  }
 }
 int Assembler::parseMemoryOperand(std::string symbol,int type){
   //type nam kaze koji tip adresiranja, pa mi vratimo zadnjih 12 bita ili koliko vec
@@ -967,4 +796,255 @@ void Assembler::writeToOutput(){
 
     outfile.close();
 
+}
+void Assembler::push32bit(int value){
+  char byte1,byte2,byte3,byte4;
+  byte1 = (value >> 24) & 0xFF;
+  byte2 = (value >> 16) & 0xFF;
+  byte3 = (value >> 8) & 0xFF;
+  byte4 = value & 0xFF;
+
+  section_contents[current_section].push_back(byte1);
+  section_contents[current_section].push_back(byte2);
+  section_contents[current_section].push_back(byte3);
+  section_contents[current_section].push_back(byte4);
+}
+
+void Assembler::handleLabel(std::string label){
+  if (symbol_table.count(label)){//ima ulaz u tabeli simbola, ubacujemo definiciju
+    symbol_table[label].defined = true;
+    symbol_table[label].section = current_section;
+    symbol_table[label].value = location_counter;
+
+    ForwardRefsEntry* temp = symbol_table[label].flink;
+    while(temp){
+      //section_contents[temp->section][temp->patch-1] = symbol_table[label].value>>8;
+      //section_contents[temp->section][temp->patch] = symbol_table[label].value&255;
+      relocation_table[current_section].push_back(RelocationTableEntry(
+        temp->patch,symbol_table[label].section,symbol_table[label].value
+      ));
+      temp = temp->next; 
+    }
+    symbol_table[label].flink = nullptr;
+  }
+  else{
+    //prvi put vidimo
+    symbol_table[label] = SymbolTableEntry(
+      location_counter,current_section
+    );
+  }
+}
+
+void Assembler::handleDirective(std::string directive,std::vector<std::string> operands){
+  if (directive == ".global"){
+    //obrada global, operandi su 
+    for (std::string& operand:operands){
+      this->symbol_table[operand] = SymbolTableEntry(0,"tbd",0,NOTYPE,true);
+    }
+  }
+  if (directive == ".extern"){
+    //obrada extern, oprandi su SIMBOLI
+    for (std::string& operand:operands){
+      this->symbol_table[operand] = SymbolTableEntry(0,"und",0,NOTYPE,true);
+      this->symbol_table[operand].is_extern = true;
+    }
+  }
+  if (directive == ".section"){
+    //obrada section, operand je IME SEKCIJE
+    if (current_section !="und"){
+      //ako je und onda samo pravimo novu, und nema velicinu 
+      symbol_table[current_section].size = location_counter - symbol_table[current_section].value;
+    }
+    current_section = operands.front();//ima 1 element ovde tkd ga vadimo kako god
+    location_counter = 0;
+
+    symbol_table[current_section] = SymbolTableEntry(0,current_section,0,SECTION,false);
+    section_contents[current_section] = {};
+    //relocation_table[current_section] = ;
+    
+  }
+
+  if (directive == ".word"){
+    //obrada word, operandi su lista simbola i/ili literala
+    for (std::string operand:operands){
+      //da li je simbol ili literal?
+      if (Line::isLiteral(operand)){
+        int value = stoi(operand);
+        push32bit(value);
+      }
+      else{
+        //ipak je simbol, treba nam vrednost simbola,
+        //ako je simbol definisan, pravimo ulaz u relokacionoj tabeli
+        //ako nije definisan, pravimo ulaz u tabeli simbola sa defined = false;
+        if (symbol_table.count(operand)){// da li postoji bar 1 ulaz za ovaj simbol?
+          if (symbol_table[operand].defined){
+            int offset = location_counter;
+            std::string symbol;
+            int addend;
+
+            if (symbol_table[operand].is_global){
+              symbol = operand;
+              addend = 0; //ne treba nam ovo za globalni
+            }
+            else{
+              symbol = symbol_table[operand].section;
+              addend = symbol_table[operand].value;
+            }
+
+            relocation_table[symbol_table[operand].section].push_back(
+              RelocationTableEntry(offset,symbol,addend)
+            );
+          }
+          else{
+            ForwardRefsEntry* temp = symbol_table[operand].flink;
+            if (!temp){
+              symbol_table[operand].flink = new ForwardRefsEntry();
+              temp->patch = location_counter;
+              temp->section = current_section;
+              temp->next = nullptr;
+
+            }
+            else{
+              while(temp->next)temp=temp->next;
+              temp->next = new ForwardRefsEntry();
+              temp->patch = location_counter;
+              temp->section = current_section;
+              temp->next = nullptr;
+            }
+          }
+        }
+        else{
+          symbol_table[operand] = SymbolTableEntry(
+            0,"und",0,NOTYPE,false,false
+          );
+          symbol_table[operand].flink = new ForwardRefsEntry();
+          symbol_table[operand].flink->section = current_section;
+          symbol_table[operand].flink->patch = location_counter;
+          symbol_table[operand].flink->next = nullptr;
+        }
+        
+        section_contents[current_section].push_back(0);
+        section_contents[current_section].push_back(0);
+        section_contents[current_section].push_back(0);
+        section_contents[current_section].push_back(0);
+        
+      }
+      location_counter+=4;
+    }
+  }
+  if (directive == ".skip"){
+    //obrada skip, operand je literal koji predstavlja broj bajtova koji se 
+    int literal_value = stoi(operands.front());
+    for (int i=0;i<literal_value;i++){
+      section_contents[current_section].push_back(0);
+    }
+    location_counter += literal_value;
+  }
+  if (directive == ".end"){
+    //obrada end, ne treba da ima operand
+    symbol_table[current_section].size = location_counter - symbol_table[current_section].value;
+    this->end = true;
+    return;
+  }
+}
+
+void Assembler::loadOperandToRegister(int reg_code,std::string operand,std::string instruction){
+  if (Line::isLiteral(operand)){
+      //literal je
+    char byte1,byte2,byte3,byte4;
+    int literal = stoi(operand);
+    byte1 = (literal >> 24) & 0xFF;
+    byte2 = (literal >> 16) & 0xFF;
+    byte3 = (literal >> 8) & 0xFF;
+    byte4 = literal & 0xFF;
+
+    //1001 0001 DEST 0000 OP OP OP OP
+    //load temp,16; load reg,2byte; shl reg,temp, ld ostalo,ld temp,0
+
+    int temp_reg = 0;//koristimo r0 kao random jer onda ne moramo push/pop
+    
+    pushInstruction(145,0,0,16);//load temp,16
+    pushInstruction(145,(reg_code<<4),byte1,byte2);
+    pushInstruction(112,(reg_code<<4)+reg_code,0,0);
+    pushInstruction(145,0,0,0);//load r0,0
+    pushInstruction(145,(reg_code<<4),byte3,byte4);
+
+    debug_instructions.push_back("load temp 16 (" + instruction + ")");
+    debug_instructions.push_back("load prva 2 ("+ instruction + ")");
+    debug_instructions.push_back("shl reg temp ("+ instruction + ")");
+    debug_instructions.push_back("load temp 0 ("+ instruction + ")");
+    debug_instructions.push_back("load druga 2 ("+ instruction + ")");
+
+    location_counter +=20;
+    
+  }
+  else{
+    pushInstruction(145,0,0,16);//load temp,16
+    pushInstruction(145,(reg_code<<4),0,0);
+    pushInstruction(112,(reg_code<<4)+reg_code,0,0);
+    pushInstruction(145,0,0,0);//load r0,0
+    pushInstruction(145,(reg_code<<4),0,0);
+
+    debug_instructions.push_back("load temp 16 (" + instruction + ")");
+    debug_instructions.push_back("load prva 2 ("+ instruction + ")");
+    debug_instructions.push_back("shl reg temp ("+ instruction + ")");
+    debug_instructions.push_back("load temp 0 ("+ instruction + ")");
+    debug_instructions.push_back("load druga 2 ("+ instruction + ")");
+
+    location_counter +=20;
+    //prvo proveravamo da li je simbol definisan
+    if (symbol_table.count(operand) && symbol_table[operand].defined){
+      //ako je global addend = 0 i value je vrednost simbola,
+      //ako nije global value je sekcija i addend je 
+      int offset = location_counter;//4. bajt instrukcije
+      
+      std::string sym;
+      int addend;
+
+      if (symbol_table[operand].is_global){
+        sym = operand;
+        addend = 0;
+      }
+      else{
+        sym = symbol_table[operand].section;
+        addend = symbol_table[operand].value;
+      }
+      
+
+      relocation_table[current_section].push_back(RelocationTableEntry(
+        offset,sym,addend
+      ));
+      
+    }
+    else{
+      //simbol ili nije u tabeli ili je defined = false;
+      
+      if (symbol_table.count(operand)){
+        //dodajemo forwardlink
+        ForwardRefsEntry* temp = symbol_table[operand].flink;
+        if (!temp){
+          symbol_table[operand].flink = new ForwardRefsEntry();
+          symbol_table[operand].flink->next = nullptr;
+          symbol_table[operand].flink->section = current_section;
+          symbol_table[operand].flink->patch = location_counter;
+        }
+        else{
+          while(temp->next)temp=temp->next;
+          temp->next = new ForwardRefsEntry();
+          temp->next->next = nullptr;
+          temp->next->section = current_section;
+          temp->next->patch = location_counter;
+        }
+      }
+      else{
+        symbol_table[operand] = SymbolTableEntry(
+          0,current_section,0,0,false,true
+        );
+        symbol_table[operand].flink = new ForwardRefsEntry();
+        symbol_table[operand].flink->next = nullptr;
+        symbol_table[operand].flink->section = current_section;
+        symbol_table[operand].flink->patch = location_counter;
+      }
+    }
+  }
 }

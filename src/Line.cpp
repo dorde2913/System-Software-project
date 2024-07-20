@@ -117,8 +117,7 @@ std::vector<std::string> Line::extractOperands(std::string operand_string){
     return operands;
 }
 bool Line::isLiteral(std::string symbol){
-  for (char c:symbol){
-    if (!isdigit(c)) return false;
-  }
-  return true;
+  std::regex number_pattern(R"(^(0x[0-9A-Fa-f]+|\d+)$)");
+  if (std::regex_match(symbol,number_pattern)) return true;
+  return false;
 }

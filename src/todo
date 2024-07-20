@@ -1,2 +1,6 @@
--za load/store SAMO KOD REGINPOM VAZI DA MORA BITI POZNATA VREDNOST PRILIKOM ASEMBLIRANJA D:
--ISPRAVITI ! ! ! !
+-dodati da kada se koristi literal od 32bita se to prevede u vise instrukcija
+
+instrukcije koje treba promeniti: 
+
+call, jmp, beq, bne, bgt, ld,st 
+instrukcija 1001 0001 moze da koristi 16 bita za operand nije problem :)

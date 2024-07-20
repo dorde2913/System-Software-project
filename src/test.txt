@@ -11,7 +11,7 @@ handler:
     ld $3, %r2
     beq %r1, %r2, handle_terminal
     ld $4, %r2
-    beq %r1, %r2, handle_software
+    beq %r1, %pened filer2, handle_software
 finish:
     pop %r2
     pop %r1

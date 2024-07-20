@@ -3,6 +3,7 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <regex>
 class Line{
   private:
   std::string text;
@@ -32,7 +33,7 @@ class Line{
 
   std::vector<std::string> extractOperands(std::string operand_string);
   
-  bool isLiteral(std::string symbol);
+  static bool isLiteral(std::string symbol);
 };
 
 #endif
