@@ -132,7 +132,7 @@ Atributi asemblera
 
   //relokacionih zapisa moze biti vise za jednu sekciju, mozemo svaka sekcija -> vektor zapisa
   std::unordered_map<std::string,std::vector<RelocationTableEntry>> relocation_table;
-  std::vector<std::string> debug_instructions;
+  std::unordered_map<std::string,std::vector<std::string>> debug_instructions;
   //forwardrefs je u tabeli simbola tkd nema svoj atribut ovde
   int location_counter = 0;
   std::string current_section = "und";

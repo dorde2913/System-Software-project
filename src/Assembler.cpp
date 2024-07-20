@@ -52,7 +52,8 @@ void Assembler::addLine(Line& line){
     std::string instruction = line.getInstruction().first;
     
     std::vector<std::string> operands = line.extractOperands(line.getInstruction().second);
-    if (instruction!="iret" && instruction!="call" && instruction != "jmp")debug_instructions.push_back(instruction);
+    if (instruction!="iret" && instruction!="call" && instruction != "jmp"
+    && instruction != "beq" && instruction != "bne" && instruction != "bgt")debug_instructions[current_section].push_back(instruction);
     
     //sve instrukcije su velicine 4 bajta, te mozemo odmah da lepo dodamo
     location_counter +=4;
@@ -78,10 +79,10 @@ void Assembler::addLine(Line& line){
       location_counter+=4;
       //pop pc
       pushInstruction(147,254,0,4);
-      debug_instructions.push_back("pop pc (iret)");
+      debug_instructions[current_section].push_back("pop pc (iret)");
 
       pushInstruction(151,14,0,4);
-      debug_instructions.push_back("pop status (iret)");
+      debug_instructions[current_section].push_back("pop status (iret)");
     }
     else if (instruction == "call"){
       //jedan operand, adresa funkcije koja se poziva
@@ -93,7 +94,7 @@ void Assembler::addLine(Line& line){
       //push pc
       
       pushInstruction(129,sp,0,-4);
-      debug_instructions.push_back("push pc (call)");
+      debug_instructions[current_section].push_back("push pc (call)");
       //sada u zavisnosti od velicine operand ubacujemo u pc
       std::string operand = operands.front();
       loadOperandToRegister(pc,operand,instruction);
@@ -114,20 +115,41 @@ void Assembler::addLine(Line& line){
     else if (instruction == "beq"){
       //2 registra, operand koji predstavlja adresu za skok
       //ako r1==r2, pc<=operand
+
+      //beq r1 r2 operand -> u r0 ucitamo operand i onda ako B=C load pc r0
       std::string reg1 = operands[0];
       std::string reg2 = operands[1];
       std::string operand = operands[2];
 
       int reg_code1 = parseRegister(reg1);
       int reg_code2 = parseRegister(reg2);
-      reg_code1 = reg_code1<<4;
-      reg_code1+=reg_code2;
+      int temp_reg;
+      for (int i=1;i<14;i++){
+        if (i!=reg_code1 && i!=reg_code2){
+          temp_reg = i;
+          break;
+        }
+      }
+      //treba push i pop temp_reg
+      
+      //1000 0001, u D upisujemo -4, u A sp, u B registar nas
+      int sp = 14;
+      sp = sp<<4;
+      sp+=temp_reg;
+      pushInstruction(129,sp,0,-4);
+      debug_instructions[current_section].push_back("push temp (beq)");
 
-      section_contents[current_section].push_back(49);
-      section_contents[current_section].push_back(reg_code1);
-      section_contents[current_section].push_back(reg_code1);
-      section_contents[current_section].push_back(reg_code1);
-      //mpOperands(operand);
+
+      loadOperandToRegister(temp_reg,operand,instruction);
+
+      temp_reg = (temp_reg<<4)+reg_code1;
+      reg_code2 = reg_code2<<4;
+      //0011 0001 temp_reg reg_code1 reg_coed2 0000 0000 0000
+
+      pushInstruction(49,temp_reg,reg_code2,0);
+      pushInstruction(147,sp,0,4);
+      debug_instructions[current_section].push_back("beq");
+      debug_instructions[current_section].push_back("pop temp (beq)");
     }
     else if (instruction == "bne"){
       std::string reg1 = operands[0];
@@ -136,13 +158,29 @@ void Assembler::addLine(Line& line){
 
       int reg_code1 = parseRegister(reg1);
       int reg_code2 = parseRegister(reg2);
-      reg_code1 = reg_code1<<4;
-      reg_code1+=reg_code2;
-      section_contents[current_section].push_back(50);
-      section_contents[current_section].push_back(reg_code1);
-      section_contents[current_section].push_back(reg_code1);
-      section_contents[current_section].push_back(reg_code1);
-      //parseJumpOperands(operand);
+      int temp_reg;
+      for (int i=1;i<14;i++){
+        if (i!=reg_code1 && i!=reg_code2){
+          temp_reg = i;
+          break;
+        }
+      }
+      int sp = 14;
+      sp = sp<<4;
+      sp+=temp_reg;
+      pushInstruction(129,sp,0,-4);
+      debug_instructions[current_section].push_back("push temp (beq)");
+      loadOperandToRegister(temp_reg,operand,instruction);
+
+      temp_reg = (temp_reg<<4)+reg_code1;
+      reg_code2 = reg_code2<<4;
+      //0011 0001 temp_reg reg_code1 reg_coed2 0000 0000 0000
+
+      
+      pushInstruction(50,temp_reg,reg_code2,0);
+      pushInstruction(147,sp,0,4);
+      debug_instructions[current_section].push_back("bne");
+      debug_instructions[current_section].push_back("pop temp (beq)");
     }
     else if (instruction == "bgt"){
       std::string reg1 = operands[0];
@@ -151,13 +189,29 @@ void Assembler::addLine(Line& line){
 
       int reg_code1 = parseRegister(reg1);
       int reg_code2 = parseRegister(reg2);
-      reg_code1 = reg_code1<<4;
-      reg_code1+=reg_code2;
-      section_contents[current_section].push_back(51);
-      section_contents[current_section].push_back(reg_code1);
-      section_contents[current_section].push_back(reg_code1);
-      section_contents[current_section].push_back(reg_code1);
-      //parseJumpOperands(operand);
+      int temp_reg;
+      for (int i=1;i<14;i++){
+        if (i!=reg_code1 && i!=reg_code2){
+          temp_reg = i;
+          break;
+        }
+      }
+      int sp = 14;
+      sp = sp<<4;
+      sp+=temp_reg;
+      pushInstruction(129,sp,0,-4);
+      debug_instructions[current_section].push_back("push temp (beq)");
+      loadOperandToRegister(temp_reg,operand,instruction);
+
+      temp_reg = (temp_reg<<4)+reg_code1;
+      reg_code2 = reg_code2<<4;
+      //0011 0001 temp_reg reg_code1 reg_coed2 0000 0000 0000
+
+      
+      pushInstruction(51,temp_reg,reg_code2,0);
+      pushInstruction(147,sp,0,4);
+      debug_instructions[current_section].push_back("bgt");
+      debug_instructions[current_section].push_back("pop temp (beq)");
     }
     else if (instruction == "push"){
       //jedan operand koji je neki registar,
@@ -543,7 +597,7 @@ void Assembler::printTables(){
       std::cout<<std::bitset<8>(b)<<" ";
       count+=8;
       if (count!=0 && count%32 == 0){
-        std::cout<<debug_instructions[i];
+        std::cout<<debug_instructions[section.first][i];
         i++;
       }
     }
@@ -867,10 +921,12 @@ void Assembler::handleDirective(std::string directive,std::vector<std::string> o
   if (directive == ".word"){
     //obrada word, operandi su lista simbola i/ili literala
     for (std::string operand:operands){
+      debug_instructions[current_section].push_back(".word");
       //da li je simbol ili literal?
       if (Line::isLiteral(operand)){
         int value = stoi(operand);
         push32bit(value);
+        
       }
       else{
         //ipak je simbol, treba nam vrednost simbola,
@@ -928,6 +984,7 @@ void Assembler::handleDirective(std::string directive,std::vector<std::string> o
         section_contents[current_section].push_back(0);
         section_contents[current_section].push_back(0);
         
+        
       }
       location_counter+=4;
     }
@@ -969,11 +1026,11 @@ void Assembler::loadOperandToRegister(int reg_code,std::string operand,std::stri
     pushInstruction(145,0,0,0);//load r0,0
     pushInstruction(145,(reg_code<<4),byte3,byte4);
 
-    debug_instructions.push_back("load temp 16 (" + instruction + ")");
-    debug_instructions.push_back("load prva 2 ("+ instruction + ")");
-    debug_instructions.push_back("shl reg temp ("+ instruction + ")");
-    debug_instructions.push_back("load temp 0 ("+ instruction + ")");
-    debug_instructions.push_back("load druga 2 ("+ instruction + ")");
+    debug_instructions[current_section].push_back("load temp 16 (" + instruction + ")");
+    debug_instructions[current_section].push_back("load prva 2 ("+ instruction + ")");
+    debug_instructions[current_section].push_back("shl reg temp ("+ instruction + ")");
+    debug_instructions[current_section].push_back("load temp 0 ("+ instruction + ")");
+    debug_instructions[current_section].push_back("load druga 2 ("+ instruction + ")");
 
     location_counter +=20;
     
@@ -985,11 +1042,11 @@ void Assembler::loadOperandToRegister(int reg_code,std::string operand,std::stri
     pushInstruction(145,0,0,0);//load r0,0
     pushInstruction(145,(reg_code<<4),0,0);
 
-    debug_instructions.push_back("load temp 16 (" + instruction + ")");
-    debug_instructions.push_back("load prva 2 ("+ instruction + ")");
-    debug_instructions.push_back("shl reg temp ("+ instruction + ")");
-    debug_instructions.push_back("load temp 0 ("+ instruction + ")");
-    debug_instructions.push_back("load druga 2 ("+ instruction + ")");
+    debug_instructions[current_section].push_back("load temp 16 (" + instruction + ")");
+    debug_instructions[current_section].push_back("load prva 2 ("+ instruction + ")");
+    debug_instructions[current_section].push_back("shl reg temp ("+ instruction + ")");
+    debug_instructions[current_section].push_back("load temp 0 ("+ instruction + ")");
+    debug_instructions[current_section].push_back("load druga 2 ("+ instruction + ")");
 
     location_counter +=20;
     //prvo proveravamo da li je simbol definisan
