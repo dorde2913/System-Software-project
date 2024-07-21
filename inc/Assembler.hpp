@@ -163,7 +163,9 @@ Atributi asemblera
   void handleLabel(std::string label);
   void handleDirective(std::string directive, std::vector<std::string> operands);
   void loadOperandToRegister(int reg_code,std::string operand,std::string instruction);
-  int getRandomReg(int used);
+  void handleLoadStore(std::string instruction,int reg_code,std::string operand,int mem_type);
+
+  std::string removeDollar(std::string operand);
 };
 
 #endif

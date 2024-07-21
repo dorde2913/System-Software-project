@@ -34,6 +34,7 @@ class Line{
   std::vector<std::string> extractOperands(std::string operand_string);
   
   static bool isLiteral(std::string symbol);
+  static bool isHex(std::string literal);
 };
 
 #endif

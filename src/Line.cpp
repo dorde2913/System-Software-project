@@ -121,3 +121,7 @@ bool Line::isLiteral(std::string symbol){
   if (std::regex_match(symbol,number_pattern)) return true;
   return false;
 }
+bool Line::isHex(std::string literal){
+  if (literal[0] == '0' && literal[1] =='x')return true;
+  return false;
+}

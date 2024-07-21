@@ -53,7 +53,8 @@ void Assembler::addLine(Line& line){
     
     std::vector<std::string> operands = line.extractOperands(line.getInstruction().second);
     if (instruction!="iret" && instruction!="call" && instruction != "jmp"
-    && instruction != "beq" && instruction != "bne" && instruction != "bgt")debug_instructions[current_section].push_back(instruction);
+    && instruction != "beq" && instruction != "bne" && instruction != "bgt"
+    && instruction!="ld" && instruction !="st")debug_instructions[current_section].push_back(instruction);
     
     //sve instrukcije su velicine 4 bajta, te mozemo odmah da lepo dodamo
     location_counter +=4;
@@ -392,17 +393,35 @@ void Assembler::addLine(Line& line){
       6 - regindpom symbol
       7 - regindpom literal
       -1 - error
+
+      za immed sym i immed literal koristimo postojecu funkciju load32,s time da skidamo $
+
+      za mem sym i mem literal pravimo modifikaciju na load32 ili novu funkciju
+
+      ostalo moze nepromenjeno
       */
+     /*
+     TODO: OVO SVE MORA DA SE MENJA NE ZNAM STA JE OVO
+     */
      std::cout<<"Addressing: "<<mem_type<<std::endl;
-     int last_12b; 
+     std::cout<<operands[operand_index]<<std::endl;
+     int value; 
      int tempval;
+     std::string op;
+    
+    //ako je immed symbol/literal vraca vrednost simbola/literala
+
+    //handleLoadStore(instruction,reg_code,operands[operand_index],mem_type);
+    op = removeDollar(operands[operand_index]);
+
      switch(mem_type){
       case 0:
         //immed symbol
-        last_12b = parseMemoryOperand(operands[operand_index],mem_type);
+        
         std::cout<<"Immed symbol: "<<operands[operand_index]<<std::endl;
-        if (instruction == "ld") pushInstruction(145,reg_code<<4,last_12b>>8,last_12b&255);
-        else if (instruction == "st") pushInstruction(128,0,(last_12b>>8)+(reg_code<<4),last_12b&255);
+        handleLoadStore(instruction,reg_code,op,mem_type);
+        //if (instruction == "ld") loadOperandToRegister(reg_code,std::to_string(value),instruction);
+        //else if (instruction == "st") pushInstruction(128,0,(value>>8)+(reg_code<<4),value&255);
         break;
           //std::cout<<"INVALID SYMBOL: "<<operands[0]<<std::endl;
           //end = true;
@@ -411,50 +430,52 @@ void Assembler::addLine(Line& line){
       case 1:
         //immed literal
         std::cout<<"Immed literal: "<<operands[operand_index]<<std::endl;
-        last_12b = parseMemoryOperand(operands[operand_index],mem_type);
+        handleLoadStore(instruction,reg_code,op,mem_type);
+        //value = parseMemoryOperand(operands[operand_index],mem_type);
         //1001 0001 DESTDIR 0000 0000 DDDD DDDD DDDD
-        if (instruction == "ld") pushInstruction(145,reg_code<<4,last_12b>>8,last_12b&255);
-        else if (instruction == "st") pushInstruction(128,0,(last_12b>>8)+(reg_code<<4),last_12b&255);
+        //if (instruction == "ld") loadOperandToRegister(reg_code,std::to_string(value),instruction);
+        //else if (instruction == "st") pushInstruction(128,0,(value>>8)+(reg_code<<4),value&255);
         
         break;
       case 2:
         //mem symbol
-        last_12b = parseMemoryOperand(operands[operand_index],mem_type);
+        //value = parseMemoryOperand(operands[operand_index],mem_type);
         std::cout<<"Mem symbol: "<<operands[operand_index]<<std::endl;
-        
+        handleLoadStore(instruction,reg_code,op,mem_type);
         //1001 0010 DESTREG 0000 0000 SYM SYM SYM
-        if (instruction == "ld") pushInstruction(146,reg_code<<4,last_12b>>8,last_12b&255);
+        //if (instruction == "ld") pushInstruction(146,reg_code<<4,value>>8,value&255);
         //1000 0010 0000 0000 SRC SYM SYM SYM
-        else if (instruction == "st") pushInstruction(130,0,(last_12b>>8)+(reg_code<<4),last_12b&255);
+        //else if (instruction == "st") pushInstruction(130,0,(value>>8)+(reg_code<<4),value&255);
 
         break;
       case 3:
         //mem literal
-        last_12b = parseMemoryOperand(operands[operand_index],mem_type);
+        handleLoadStore(instruction,reg_code,op,mem_type);
+        //value = parseMemoryOperand(operands[operand_index],mem_type);
       
         //1001 0010 DESTREG 0000 0000 SYM SYM SYM
-        if (instruction == "ld") pushInstruction(146,reg_code<<4,last_12b>>8,last_12b&255);
-        else if (instruction == "st") pushInstruction(130,0,(last_12b>>8)+(reg_code<<4),last_12b&255);
+        //if (instruction == "ld") pushInstruction(146,reg_code<<4,value>>8,value&255);
+        //else if (instruction == "st") pushInstruction(130,0,(value>>8)+(reg_code<<4),value&255);
 
         std::cout<<"mem literal: "<<operands[operand_index]<<std::endl;
         break;
       case 4:
         //reg
-        last_12b = parseMemoryOperand(operands[operand_index],mem_type);
+        value = parseMemoryOperand(operands[operand_index],mem_type);
       
         //1001 0001 DEST SRC 0000 0000 0000 0000
-        if (instruction == "ld") pushInstruction(145,(reg_code<<4) + last_12b,0,0);
+        if (instruction == "ld") pushInstruction(145,(reg_code<<4) + value,0,0);
         //1001 0001 SRC DEST 0000 0000 0000 0000
-        else if (instruction == "st") pushInstruction(145,(last_12b<<4)+reg_code,0,0);
+        else if (instruction == "st") pushInstruction(145,(value<<4)+reg_code,0,0);
         std::cout<<"Reg: "<<operands[operand_index]<<std::endl;
         break;
       case 5:
         //regind 1001 0010 DEST SRC 0000 0000 0000 0000
-        last_12b = parseMemoryOperand(operands[operand_index],mem_type);
-        std::cout<<"last12 "<<last_12b<<std::endl;
-        if (instruction == "ld") pushInstruction(146,(reg_code<<4) + last_12b,0,0);
+        value = parseMemoryOperand(operands[operand_index],mem_type);
+        std::cout<<"last12 "<<value<<std::endl;
+        if (instruction == "ld") pushInstruction(146,(reg_code<<4) + value,0,0);
         //regind 1000 0000 0000 DEST SRC 0000 0000 0000
-        else if (instruction == "st") pushInstruction(128,last_12b,reg_code<<4,0);
+        else if (instruction == "st") pushInstruction(128,value,reg_code<<4,0);
 
         std::cout<<"Regind: "<<operands[operand_index]<<std::endl;
         break;
@@ -467,12 +488,12 @@ void Assembler::addLine(Line& line){
         //regind literal 1001 0010 DEST SRC 0000 OFFSET OFFSET OFFSET
         
 
-        last_12b = parseMemoryOperand(operands[operand_index],mem_type);
-        tempval = last_12b<<20;
+        value = parseMemoryOperand(operands[operand_index],mem_type);
+        tempval = value<<20;
         tempval = tempval>>20;
-        if (instruction == "ld") pushInstruction(146,(reg_code<<4) + (last_12b>>16),tempval>>8,tempval&255);
+        if (instruction == "ld") pushInstruction(146,(reg_code<<4) + (value>>16),tempval>>8,tempval&255);
         //regind literal 1000 0000 0000 DEST SRC OFF OFF OFF
-        else if (instruction == "st") pushInstruction(128,last_12b>>16,(reg_code<<4) + tempval>>8,tempval & 255);
+        else if (instruction == "st") pushInstruction(128,value>>16,(reg_code<<4) + tempval>>8,tempval & 255);
 
         std::cout<<"Regindpom: "<<operands[operand_index]<<std::endl;
 
@@ -1008,26 +1029,37 @@ void Assembler::handleDirective(std::string directive,std::vector<std::string> o
 void Assembler::loadOperandToRegister(int reg_code,std::string operand,std::string instruction){
   if (Line::isLiteral(operand)){
       //literal je
+      int literal;
     char byte1,byte2,byte3,byte4;
-    int literal = stoi(operand);
+    if (Line::isHex(operand)){
+      std::cout<<"HEX HEX HEX"<<std::endl;
+      literal = stoul(operand,nullptr,16);
+    }
+    else{
+      literal = stoi(operand);
+    }
+    std::cout<<"PARSED LITERAL: "<<literal<<std::endl;
     byte1 = (literal >> 24) & 0xFF;
     byte2 = (literal >> 16) & 0xFF;
     byte3 = (literal >> 8) & 0xFF;
     byte4 = literal & 0xFF;
 
+    std::cout<<"operand: "<<operand<<" bytes:"<<byte1<<" "<<byte2<<" "<<byte3<<" "<<byte4<<std::endl;
     //1001 0001 DEST 0000 OP OP OP OP
     //load temp,16; load reg,2byte; shl reg,temp, ld ostalo,ld temp,0
 
     int temp_reg = 0;//koristimo r0 kao random jer onda ne moramo push/pop
     
-    pushInstruction(145,0,0,16);//load temp,16
+    
     pushInstruction(145,(reg_code<<4),byte1,byte2);
+    pushInstruction(145,0,0,16);//load temp,16
     pushInstruction(112,(reg_code<<4)+reg_code,0,0);
     pushInstruction(145,0,0,0);//load r0,0
     pushInstruction(145,(reg_code<<4),byte3,byte4);
 
-    debug_instructions[current_section].push_back("load temp 16 (" + instruction + ")");
+    
     debug_instructions[current_section].push_back("load prva 2 ("+ instruction + ")");
+    debug_instructions[current_section].push_back("load temp 16 (" + instruction + ")");
     debug_instructions[current_section].push_back("shl reg temp ("+ instruction + ")");
     debug_instructions[current_section].push_back("load temp 0 ("+ instruction + ")");
     debug_instructions[current_section].push_back("load druga 2 ("+ instruction + ")");
@@ -1036,14 +1068,16 @@ void Assembler::loadOperandToRegister(int reg_code,std::string operand,std::stri
     
   }
   else{
-    pushInstruction(145,0,0,16);//load temp,16
+    
     pushInstruction(145,(reg_code<<4),0,0);
+    pushInstruction(145,0,0,16);//load temp,16
     pushInstruction(112,(reg_code<<4)+reg_code,0,0);
     pushInstruction(145,0,0,0);//load r0,0
     pushInstruction(145,(reg_code<<4),0,0);
 
-    debug_instructions[current_section].push_back("load temp 16 (" + instruction + ")");
+   
     debug_instructions[current_section].push_back("load prva 2 ("+ instruction + ")");
+    debug_instructions[current_section].push_back("load temp 16 (" + instruction + ")");
     debug_instructions[current_section].push_back("shl reg temp ("+ instruction + ")");
     debug_instructions[current_section].push_back("load temp 0 ("+ instruction + ")");
     debug_instructions[current_section].push_back("load druga 2 ("+ instruction + ")");
@@ -1104,4 +1138,49 @@ void Assembler::loadOperandToRegister(int reg_code,std::string operand,std::stri
       }
     }
   }
+}
+void Assembler::handleLoadStore(std::string instruction,int reg_code,std::string operand,int mem_type){
+  std::cout<<instruction<<" "<<operand<<std::endl;
+  //hendlujemo samo immed i mem sym/literal
+  int temp_reg;
+  if (instruction == "ld" && (mem_type == 0 || mem_type == 1)){
+    loadOperandToRegister(reg_code,operand,instruction);
+  }
+  else if (instruction == "ld" && (mem_type == 2 || mem_type == 3)) {
+    for (int i=1;i<14;i++){
+      if (reg_code!=i){
+        temp_reg = i;
+        break;
+      }
+    }
+    //u temp reg ide vrednost operanda i onda se radi regind, treba push i pop da se odradi
+    int sp = 14;
+    sp = sp<<4;
+    sp+=temp_reg;
+    pushInstruction(129,sp,0,-4);
+    debug_instructions[current_section].push_back("push temp (ld)");
+
+    loadOperandToRegister(temp_reg,operand,instruction);
+
+    pushInstruction(147,sp,0,4);
+    debug_instructions[current_section].push_back("pop temp (ld)");
+  }
+  else if (instruction == "st" && (mem_type == 0 || mem_type == 1)){
+
+  }
+  else if (instruction == "st" && (mem_type == 2 || mem_type == 3)){
+
+  }
+  else {
+    std::cout<<"Error, improper use of handleLoadStore"<<std::endl;
+    return;
+  }
+
+}
+std::string Assembler::removeDollar(std::string operand){
+  std::string ret = "";
+  for (char c:operand){
+    if (c!='$') ret+=c;
+  }
+  return ret;
 }
