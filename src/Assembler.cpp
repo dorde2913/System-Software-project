@@ -362,6 +362,7 @@ void Assembler::addLine(Line& line){
     sa memorijom
     */
     else if (instruction == "ld" || instruction == "st"){
+      location_counter-=4;//malo glupo ali stagod
       //ld operand, %gprD
       int reg_index;
       int operand_index;
@@ -464,19 +465,33 @@ void Assembler::addLine(Line& line){
         value = parseMemoryOperand(operands[operand_index],mem_type);
       
         //1001 0001 DEST SRC 0000 0000 0000 0000
-        if (instruction == "ld") pushInstruction(145,(reg_code<<4) + value,0,0);
+        if (instruction == "ld") {
+          pushInstruction(145,(reg_code<<4) + value,0,0);
+          debug_instructions[current_section].push_back("ld");
+        }
         //1001 0001 SRC DEST 0000 0000 0000 0000
-        else if (instruction == "st") pushInstruction(145,(value<<4)+reg_code,0,0);
+        else if (instruction == "st"){
+          pushInstruction(145,(value<<4)+reg_code,0,0);
+          debug_instructions[current_section].push_back("st");
+        } 
+
+        location_counter+=4;
         std::cout<<"Reg: "<<operands[operand_index]<<std::endl;
         break;
       case 5:
         //regind 1001 0010 DEST SRC 0000 0000 0000 0000
         value = parseMemoryOperand(operands[operand_index],mem_type);
         std::cout<<"last12 "<<value<<std::endl;
-        if (instruction == "ld") pushInstruction(146,(reg_code<<4) + value,0,0);
+        if (instruction == "ld") {
+          pushInstruction(146,(reg_code<<4) + value,0,0);
+          debug_instructions[current_section].push_back("ld");
+        }
         //regind 1000 0000 0000 DEST SRC 0000 0000 0000
-        else if (instruction == "st") pushInstruction(128,value,reg_code<<4,0);
-
+        else if (instruction == "st") {
+          pushInstruction(128,value,reg_code<<4,0);
+          debug_instructions[current_section].push_back("st");
+        }
+        location_counter+=4;
         std::cout<<"Regind: "<<operands[operand_index]<<std::endl;
         break;
       case 6:
@@ -491,10 +506,15 @@ void Assembler::addLine(Line& line){
         value = parseMemoryOperand(operands[operand_index],mem_type);
         tempval = value<<20;
         tempval = tempval>>20;
-        if (instruction == "ld") pushInstruction(146,(reg_code<<4) + (value>>16),tempval>>8,tempval&255);
+        if (instruction == "ld"){
+          pushInstruction(146,(reg_code<<4) + (value>>16),tempval>>8,tempval&255);
+          debug_instructions[current_section].push_back("ld");
+        } 
         //regind literal 1000 0000 0000 DEST SRC OFF OFF OFF
-        else if (instruction == "st") pushInstruction(128,value>>16,(reg_code<<4) + tempval>>8,tempval & 255);
-
+        else if (instruction == "st") {
+          pushInstruction(128,value>>16,(reg_code<<4) + tempval>>8,tempval & 255);
+          debug_instructions[current_section].push_back("st");
+        }
         std::cout<<"Regindpom: "<<operands[operand_index]<<std::endl;
 
         break;
@@ -1159,17 +1179,69 @@ void Assembler::handleLoadStore(std::string instruction,int reg_code,std::string
     sp+=temp_reg;
     pushInstruction(129,sp,0,-4);
     debug_instructions[current_section].push_back("push temp (ld)");
+    location_counter+=4;
 
     loadOperandToRegister(temp_reg,operand,instruction);
+    pushInstruction(146,(reg_code<<4)+temp_reg,0,0);//ld regind
+    debug_instructions[current_section].push_back("ld reg,[temp_reg] (ld)");
+    location_counter+=4;
 
     pushInstruction(147,sp,0,4);
     debug_instructions[current_section].push_back("pop temp (ld)");
+    location_counter+=4;
+    //sad regind, u temp_reg je vrednost
+    
   }
   else if (instruction == "st" && (mem_type == 0 || mem_type == 1)){
+    //ucitavamo u gprA -> reg
+    for (int i=1;i<14;i++){
+      if (reg_code!=i){
+        temp_reg = i;
+        break;
+      }
+    }
+    //u temp reg ide vrednost operanda i onda se radi regind, treba push i pop da se odradi
+    int sp = 14;
+    sp = sp<<4;
+    sp+=temp_reg;
+    pushInstruction(129,sp,0,-4);
+    debug_instructions[current_section].push_back("push temp (st)");
+    location_counter+=4;
 
+    loadOperandToRegister(temp_reg,operand,instruction);
+    //u temp je vrednost
+    pushInstruction(128,(temp_reg<<4),reg_code<<4,0);
+    debug_instructions[current_section].push_back("st temp,reg (st)");
+    location_counter+=4;
+
+    pushInstruction(147,sp,0,4);
+    debug_instructions[current_section].push_back("pop temp (st)");
+    location_counter+=4;
   }
   else if (instruction == "st" && (mem_type == 2 || mem_type == 3)){
+    for (int i=1;i<14;i++){
+      if (reg_code!=i){
+        temp_reg = i;
+        break;
+      }
+    }
+    //u temp reg ide vrednost operanda i onda se radi regind, treba push i pop da se odradi
+    int sp = 14;
+    sp = sp<<4;
+    sp+=temp_reg;
+    pushInstruction(129,sp,0,-4);
+    location_counter+=4;
+    debug_instructions[current_section].push_back("push temp (st)");
 
+    loadOperandToRegister(temp_reg,operand,instruction);
+    //u temp je vrednost
+    pushInstruction(130,(temp_reg<<4),reg_code<<4,0);
+    debug_instructions[current_section].push_back("st [temp],reg (st)");
+    location_counter+=4;
+
+    pushInstruction(147,sp,0,4);
+    debug_instructions[current_section].push_back("pop temp (st)");
+    location_counter+=4;
   }
   else {
     std::cout<<"Error, improper use of handleLoadStore"<<std::endl;
