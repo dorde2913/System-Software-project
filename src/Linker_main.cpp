@@ -65,13 +65,9 @@ int main(int argc, char* argv[]){
   }
 
   Linker linker;
-  for (auto& file:input_files){
-    linker.loadFile(file);
-  }
-  if (linker.checkSolved()){
-    linker.printTables();
-  }
-  else return -1;
+  linker.begin(input_files,section_addr,hex,output_file);
+
+  
   
 
 /*

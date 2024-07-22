@@ -93,6 +93,7 @@ void Linker::printTables(){
     }
     std::cout<<std::endl;
   }
+
 }
 
 bool Linker::loadFile(std::string filename){
@@ -199,4 +200,56 @@ bool Linker::checkSolved(){
     }
   }
   return solved;
+}
+
+int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::string,int> place_addr,int hex, std::string output_file){
+
+  //prvi prolaz
+  for (auto& file:input_files){
+    loadFile(file);
+  }
+  if (checkSolved()){
+    printTables();
+  }
+  else{
+    //return -1;
+  } 
+  
+  //drugi prolaz
+  for (auto& entry:place_addr){
+    if (local_symbol_table.find(entry.first) == local_symbol_table.end()){
+      std::cout<<"Error, u place opciji navedena nepostojeca sekcija: "<<entry.first<<std::endl;
+      return -1;
+    }
+    for (auto& e:section_addr){
+      if (e.second == entry.second){
+        std::cout<<"Error, nije moguce postaviti 2 razlicite sekcije na istu adresu ("<<e.first<<", "<<entry.first<<")\n";
+        return -1;
+      }
+    }
+    section_addr[entry.first] = entry.second;
+    if (entry.second > max_adr){
+      max_adr = entry.second;
+      location_counter = max_adr;
+    } 
+
+    location_counter+= local_symbol_table[entry.first][entry.first].size;
+  }
+
+  for (auto& entry:local_symbol_table){
+    if (section_addr.find(entry.first) == section_addr.end()){
+      section_addr[entry.first] = location_counter;
+      location_counter+= entry.second[entry.first].size;
+    }
+  }
+  printFinalAddr();
+
+  //sad treba razresiti sve vrednosti simbola, i pobrinuti se za spajanje istoimenih sekcija
+
+  return 0;
+}
+void Linker::printFinalAddr(){
+  for (auto& entry:section_addr){
+    std::cout<<"Section: "<<entry.first<<" Address: "<<std::hex<<entry.second<<std::endl;
+  }
 }
