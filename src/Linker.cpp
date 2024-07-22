@@ -2,7 +2,7 @@
 void Linker::printTables(){
   //print za test
   std::cout << "--------------------------------------------------"<<std::endl;
-  std::cout<<"Symbol table: "<<std::endl;
+  std::cout<<"Global Symbol table: "<<std::endl;
   std::cout << "--------------------------------------------------"<<std::endl;
   std::cout << std::left
               << std::setw(25) << "Name"
@@ -15,7 +15,7 @@ void Linker::printTables(){
               << std::setw(10) << "Extern"
               << std::endl;
 
-  for (auto& entry:symbol_table) {
+  for (auto& entry:global_symbol_table) {
       std::cout << std::left
                 << std::setw(25) << entry.first
                 << std::setw(10) << entry.second.value
@@ -27,6 +27,37 @@ void Linker::printTables(){
                 << std::setw(10) << entry.second.is_extern
                 << std::endl;
   }
+  std::cout << "--------------------------------------------------"<<std::endl;
+  std::cout<<"Local Symbol tables: "<<std::endl;
+  std::cout << "--------------------------------------------------"<<std::endl;
+  for (auto& e:local_symbol_table){
+    std::cout<<"SECTION: "<<e.first<<std::endl;
+    std::cout << std::left
+              << std::setw(25) << "Name"
+              << std::setw(10) << "Value"
+              << std::setw(10) << "Size"
+              << std::setw(10) << "Type"
+              << std::setw(10) << "Global"
+              << std::setw(20) << "Section"
+              << std::setw(10) << "Defined"
+              << std::setw(10) << "Extern"
+              << std::endl;
+
+    for (auto& entry:e.second) {
+        std::cout << std::left
+                  << std::setw(25) << entry.first
+                  << std::setw(10) << entry.second.value
+                  << std::setw(10) << entry.second.size
+                  << std::setw(10) << entry.second.type
+                  << std::setw(10) << entry.second.is_global
+                  << std::setw(20) << entry.second.section
+                  << std::setw(10) << entry.second.defined
+                  << std::setw(10) << entry.second.is_extern
+                  << std::endl;
+    }
+  }
+
+
   std::cout << "--------------------------------------------------"<<std::endl;
   std::cout << "Relocation tables: "<<std::endl;
   std::cout << "--------------------------------------------------"<<std::endl;
@@ -87,7 +118,30 @@ bool Linker::loadFile(std::string filename){
     
     
     // Insert the entry into the unordered_map
-    symbol_table[name] = entry;
+    //proveriti da li postoji ovaj name, ako postoji i extern je a nas entry nije, ubacujemo def,
+    //ako su i postojeci i nas extern onda nista, ako oba nisu extern to je greska dupla definicija
+    //na kraju linkovanja ako je ostalo ista extern to je greska nedefinisan simbol :)
+    if (!entry.is_global){
+      local_symbol_table[entry.section][name] = entry;
+    }
+    else{
+      if (global_symbol_table.find(name)!= global_symbol_table.end()){
+        //prisutan name
+        if (global_symbol_table[name].is_extern && !entry.is_extern){
+          global_symbol_table[name] = entry;
+        }
+        else if (!global_symbol_table[name].is_extern && !entry.is_extern){
+          std::cout<<"ERROR, visestruka definicija simbola: "<<name<<std::endl;
+          return false;
+        }
+      }
+      else{
+        //nije prisutan
+        global_symbol_table[name] = entry;
+      }
+    }
+    
+    
   }
 
   //velicina reloc tabele
@@ -135,4 +189,14 @@ bool Linker::loadFile(std::string filename){
   }
   infile.close();
   return true;
+}
+bool Linker::checkSolved(){
+  bool solved = true;
+  for (auto& entry:global_symbol_table){
+    if (entry.second.is_extern) {
+      std::cout<<"Nedefinisan simbol: "<<entry.first<<std::endl;
+      solved = false;
+    }
+  }
+  return solved;
 }

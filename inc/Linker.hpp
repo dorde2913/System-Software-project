@@ -64,7 +64,8 @@ struct SymbolTableEntry{
 #pragma pack(pop)
 
 
-std::unordered_map<std::string, SymbolTableEntry> symbol_table;
+std::unordered_map<std::string, SymbolTableEntry> global_symbol_table;
+std::unordered_map<std::string,std::unordered_map<std::string,SymbolTableEntry>> local_symbol_table;
 std::unordered_map<std::string,std::vector<char>> section_contents;
 std::unordered_map<std::string,std::vector<RelocationTableEntry>> relocation_table;
 
@@ -72,6 +73,7 @@ std::unordered_map<std::string,std::vector<RelocationTableEntry>> relocation_tab
 public:
   void printTables();
   bool loadFile(std::string filename);
+  bool checkSolved();
   
 };
 #endif
