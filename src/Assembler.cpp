@@ -777,13 +777,21 @@ int Assembler::parseMemoryOperand(std::string symbol,int type){
       ret = ret<<16;
 
       while (*ptr!='\0'){
-        if (*ptr!=' ' && *ptr!=']'){
+        if (*ptr!=' ' && *ptr!=']' && *ptr!='+'){
           temp+=*ptr;
         }
         ptr++;
       }
-
-      ret+=stoi(temp);
+      std::cout<<"LITERAL: "<<temp<<std::endl;
+      if (temp[1] == 'x'){
+        std::cout<<"PARSIRAN LITERAL: "<<stoul(temp,nullptr,16)<<std::endl;
+        ret+=stoul(temp,nullptr,16);
+      }
+      else{
+        std::cout<<"PARSIRAN LITERAL: "<<stoi(temp)<<std::endl;
+        ret+=stoi(temp);
+      }
+      
       return ret;
       break;
   } 

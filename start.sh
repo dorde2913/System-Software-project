@@ -1,5 +1,5 @@
-ASSEMBLER=assembler
-LINKER=linker
+ASSEMBLER=./assembler
+LINKER=./linker
 EMULATOR=emulator
 
 ${ASSEMBLER} -o main.o main.s
