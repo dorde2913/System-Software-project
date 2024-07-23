@@ -137,7 +137,7 @@ bool Linker::loadFile(std::string filename){
     if (!entry.is_global && !entry.is_extern){
       if (temp_local_symbol_table.find(entry.section)!=temp_local_symbol_table.end()){
         
-        std::cout<<"Vec imamo sekciju "<<entry.section<<std::endl;
+        
         //vec imamo ovu sekciju
         if (name!=entry.section){
           if (temp_local_symbol_table[entry.section].find(name)!=temp_local_symbol_table[entry.section].end()) {
@@ -306,6 +306,7 @@ bool Linker::loadFile(std::string filename){
   }
 
 
+
   infile.close();
   return true;
 }
@@ -330,7 +331,7 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
     printTables();
   }
   else{
-    printTables();
+    //printTables();
     //return -1;
   } 
   
@@ -351,19 +352,64 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
       max_adr = entry.second;
       location_counter = max_adr;
     } 
-
-    location_counter+= local_symbol_table[entry.first][entry.first].size;
+    
+    if (entry.second >= max_adr){
+      location_counter+= local_symbol_table[entry.first][entry.first].size;
+    }
+    
   }
 
   for (auto& entry:local_symbol_table){
-    if (section_addr.find(entry.first) == section_addr.end()){
-      section_addr[entry.first] = location_counter;
-      location_counter+= entry.second[entry.first].size;
+    if (entry.second[entry.first].type == 3){
+      if (section_addr.find(entry.first) == section_addr.end()){
+        section_addr[entry.first] = location_counter;
+        location_counter+= entry.second[entry.first].size;
+      }
     }
+    
   }
   printFinalAddr();
 
-  //sad treba razresiti sve vrednosti simbola, i pobrinuti se za spajanje istoimenih sekcija
+  //sad treba razresiti sve vrednosti simbola
+  int symbol_value;
+  char byte1,byte2,byte3,byte4;
+  for (auto& reloc_entry:relocation_table){
+    for (auto& sym:reloc_entry.second){
+      
+      if (local_symbol_table.find(sym.symbol) != local_symbol_table.end()){
+        //sekcija
+        symbol_value = local_symbol_table[reloc_entry.first][sym.symbol].value+sym.addend;
+        byte1 = (symbol_value >> 24) & 0xFF; // Most significant byte
+        byte2 = (symbol_value >> 16) & 0xFF;
+        byte3 = (symbol_value >> 8) & 0xFF;
+        byte4 = symbol_value & 0xFF; // Least significant byte
+
+        section_contents[reloc_entry.first][sym.offset-18] = byte1;
+        section_contents[reloc_entry.first][sym.offset-17] = byte2;
+        section_contents[reloc_entry.first][sym.offset-2] = byte3;
+        section_contents[reloc_entry.first][sym.offset-1] = byte4;
+      }
+      else if (global_symbol_table.find(sym.symbol) != global_symbol_table.end()){
+        //drugi neki simbol
+        symbol_value = global_symbol_table[sym.symbol].value;
+        byte1 = (symbol_value >> 24) & 0xFF; // Most significant byte
+        byte2 = (symbol_value >> 16) & 0xFF;
+        byte3 = (symbol_value >> 8) & 0xFF;
+        byte4 = symbol_value & 0xFF; // Least significant byte
+
+        section_contents[reloc_entry.first][sym.offset-18] = byte1;
+        section_contents[reloc_entry.first][sym.offset-17] = byte2;
+        section_contents[reloc_entry.first][sym.offset-2] = byte3;
+        section_contents[reloc_entry.first][sym.offset-1] = byte4;
+      }
+      else{
+        std::cout<<"Error, nedefinisan simbol: "<<sym.symbol<<std::endl;
+        return -1;
+      }
+    }
+  }
+
+  printTables();
 
   return 0;
 }
