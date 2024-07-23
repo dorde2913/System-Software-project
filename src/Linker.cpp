@@ -97,6 +97,10 @@ void Linker::printTables(){
 }
 
 bool Linker::loadFile(std::string filename){
+  std::unordered_map<std::string, SymbolTableEntry> temp_global_symbol_table;
+  std::unordered_map<std::string,std::unordered_map<std::string,SymbolTableEntry>> temp_local_symbol_table;
+  std::unordered_map<std::string,std::vector<char>> temp_section_contents;
+  std::unordered_map<std::string,std::vector<RelocationTableEntry>> temp_relocation_table;
   std::ifstream infile("./"+filename, std::ios::binary);
   if (!infile) {
       std::cerr << "Error opening file for reading: " << filename << std::endl;
@@ -106,6 +110,9 @@ bool Linker::loadFile(std::string filename){
   // Read the number of entries
   size_t size;
   infile.read(reinterpret_cast<char*>(&size), sizeof(size));
+  
+  
+  
   for (size_t i = 0; i < size; ++i) {
       // Read the length of the name string
     size_t name_length;
@@ -117,33 +124,56 @@ bool Linker::loadFile(std::string filename){
     SymbolTableEntry entry;
     entry.deserialize(infile);
     
-    
     // Insert the entry into the unordered_map
     //proveriti da li postoji ovaj name, ako postoji i extern je a nas entry nije, ubacujemo def,
     //ako su i postojeci i nas extern onda nista, ako oba nisu extern to je greska dupla definicija
     //na kraju linkovanja ako je ostalo ista extern to je greska nedefinisan simbol :)
-    if (!entry.is_global){
-      local_symbol_table[entry.section][name] = entry;
+
+    
+
+
+
+
+    if (!entry.is_global && !entry.is_extern){
+      if (temp_local_symbol_table.find(entry.section)!=temp_local_symbol_table.end()){
+        
+        std::cout<<"Vec imamo sekciju "<<entry.section<<std::endl;
+        //vec imamo ovu sekciju
+        if (name!=entry.section){
+          if (temp_local_symbol_table[entry.section].find(name)!=temp_local_symbol_table[entry.section].end()) {
+            std::cout<<"Greska, visestruka definicija lokalnog simbola: "<<name<<std::endl;
+            return false;
+          }
+          //entry.value+=local_symbol_table[entry.section][entry.section].size;
+          temp_local_symbol_table[entry.section][name] = entry;
+        }
+        
+      }
+      else{
+        temp_local_symbol_table[entry.section][name] = entry;
+      }
+      
     }
     else{
-      if (global_symbol_table.find(name)!= global_symbol_table.end()){
+      
+      if (temp_global_symbol_table.find(name)!= temp_global_symbol_table.end()){
         //prisutan name
-        if (global_symbol_table[name].is_extern && !entry.is_extern){
-          global_symbol_table[name] = entry;
+        if (temp_global_symbol_table[name].is_extern && !entry.is_extern){
+          temp_global_symbol_table[name] = entry;
         }
-        else if (!global_symbol_table[name].is_extern && !entry.is_extern){
+        else if (!temp_global_symbol_table[name].is_extern && !entry.is_extern){
           std::cout<<"ERROR, visestruka definicija simbola: "<<name<<std::endl;
           return false;
         }
       }
       else{
         //nije prisutan
-        global_symbol_table[name] = entry;
+        temp_global_symbol_table[name] = entry;
       }
     }
     
-    
   }
+  
 
   //velicina reloc tabele
   infile.read(reinterpret_cast<char*>(&size), sizeof(size));
@@ -167,7 +197,8 @@ bool Linker::loadFile(std::string filename){
       infile.read(reinterpret_cast<char*>(&new_entry.addend), sizeof(new_entry.addend));
       infile.read(reinterpret_cast<char*>(&new_entry.offset), sizeof(new_entry.offset));
       
-      relocation_table[section_name].push_back(new_entry);
+      
+      temp_relocation_table[section_name].push_back(new_entry);
     }
     
     
@@ -185,9 +216,96 @@ bool Linker::loadFile(std::string filename){
     
     for (int i=0;i<name_length;i++){
       infile.read(reinterpret_cast<char*>(&c), sizeof(c));
-      section_contents[section_name].push_back(c);
+      temp_section_contents[section_name].push_back(c);
     }
   }
+  
+  //prolazimo kroz lokalnu tabelu -> kad naidjemo na sekciju prodjemo kroz sve globalne(koji nisu extern) i dodamo na value
+  //kad naidjemo na nesto drugo samo dodajemo na value ako ta sekcija postoji
+  //DODAVANJE U FULL TABELU TEK POSLE 
+  //prolazimo kroz globalne simbole, ako imamo duplikat ali sad definisan ubacujemo, kao i ako nije duplikat
+  //prolaz kroz reloc tabelu,na svaki offset dodajemo velicinu postojece sekcije
+  //prolaz kroz section_contents samo se sve nadovezuje
+
+  for (auto& local_entry:temp_local_symbol_table){
+    for (auto& global_entry:local_symbol_table){
+      if (local_entry.first == global_entry.first){
+        //imamo duplikat sekciju
+        for (auto& entry:local_entry.second){
+          if (entry.second.type!=3){
+            entry.second.value+=global_entry.second[local_entry.first].size;
+          }
+        }
+
+        for (auto& entry:temp_global_symbol_table){
+          if (entry.second.section == local_entry.first){
+            entry.second.value+=global_entry.second[local_entry.first].size;
+          }
+        }
+      }
+    }
+  }
+
+  for (auto& temp_entry:temp_global_symbol_table){
+    //for (auto& global_entry:global_symbol_table){
+    if (global_symbol_table.find(temp_entry.first) != global_symbol_table.end()){
+      auto global_entry = global_symbol_table[temp_entry.first];
+      if (!global_entry.is_extern && !temp_entry.second.is_extern){
+        std::cout<<"Error, dupla definicija globalnog simbola: "<<temp_entry.first<<std::endl;
+        return false;
+      }
+      if (global_entry.is_extern){
+        global_symbol_table[temp_entry.first] = temp_entry.second;
+      }
+    }
+    else{
+        global_symbol_table[temp_entry.first] = temp_entry.second;
+    }
+  }
+
+  for (auto& temp_entry:temp_relocation_table){
+    for (auto& global_entry:relocation_table){
+      if (global_entry.first == temp_entry.first){
+        for (auto& entry:temp_entry.second){
+          entry.offset += local_symbol_table[global_entry.first][global_entry.first].size;
+        }
+      }
+    }
+  }
+  for (auto& temp_entry:temp_relocation_table){
+    for (auto& entry:temp_entry.second){
+      relocation_table[temp_entry.first].push_back(entry);
+    }
+  }
+
+  for (auto& temp_entry:temp_section_contents){
+    for (auto& entry:temp_entry.second){
+      section_contents[temp_entry.first].push_back(entry);
+    }
+  }
+
+  for (auto& temp_entry:temp_local_symbol_table){
+    for (auto& global_entry:local_symbol_table){
+      if (temp_entry.first == global_entry.first){
+        local_symbol_table[temp_entry.first][temp_entry.first].size+=temp_entry.second[temp_entry.first].size;
+      }
+    }
+  }
+  for (auto& temp_entry:temp_local_symbol_table){
+    if (local_symbol_table.find(temp_entry.first) != local_symbol_table.end()){
+      if (local_symbol_table[temp_entry.first][temp_entry.first].type!=3){
+        //duplikat
+        std::cout<<"Error, dupla definicija lokalnog simbola: "<<temp_entry.first<<std::endl;
+        return false;
+      }
+      
+    }
+    else{
+      local_symbol_table[temp_entry.first] = temp_entry.second;
+    }
+  }
+
+
   infile.close();
   return true;
 }
@@ -212,6 +330,7 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
     printTables();
   }
   else{
+    printTables();
     //return -1;
   } 
   
