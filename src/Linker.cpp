@@ -130,13 +130,12 @@ bool Linker::loadFile(std::string filename){
     //na kraju linkovanja ako je ostalo ista extern to je greska nedefinisan simbol :)
 
     
-
-
+    
 
 
     if (!entry.is_global && !entry.is_extern){
+      
       if (temp_local_symbol_table.find(entry.section)!=temp_local_symbol_table.end()){
-        
         
         //vec imamo ovu sekciju
         if (name!=entry.section){
@@ -147,6 +146,12 @@ bool Linker::loadFile(std::string filename){
           //entry.value+=local_symbol_table[entry.section][entry.section].size;
           temp_local_symbol_table[entry.section][name] = entry;
         }
+        else{
+          temp_local_symbol_table[entry.section][name] = entry;
+        }
+        
+
+
         
       }
       else{
@@ -321,19 +326,16 @@ bool Linker::checkSolved(){
   return solved;
 }
 
-int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::string,int> place_addr,int hex, std::string output_file){
+int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::string,int> place_addr,int hex, std::string output_file,bool print){
 
   //prvi prolaz
   for (auto& file:input_files){
     loadFile(file);
   }
-  if (checkSolved()){
-    printTables();
+  if (!checkSolved()){
+    return -1;
   }
-  else{
-    //printTables();
-    //return -1;
-  } 
+  
   
   //drugi prolaz
   for (auto& entry:place_addr){
@@ -360,17 +362,17 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
   }
 
   for (auto& entry:local_symbol_table){
-    if (entry.second[entry.first].type == 3){
-      if (section_addr.find(entry.first) == section_addr.end()){
-        section_addr[entry.first] = location_counter;
-        location_counter+= entry.second[entry.first].size;
-      }
+    if (section_addr.find(entry.first) == section_addr.end()){
+      section_addr[entry.first] = location_counter;
+      location_counter+= entry.second[entry.first].size;
     }
-    
   }
   printFinalAddr();
 
   //sad treba razresiti sve vrednosti simbola
+  for (auto& entry:local_symbol_table){
+    entry.second[entry.first].value = section_addr[entry.first];
+  }
   int symbol_value;
   char byte1,byte2,byte3,byte4;
   for (auto& reloc_entry:relocation_table){
@@ -391,7 +393,7 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
       }
       else if (global_symbol_table.find(sym.symbol) != global_symbol_table.end()){
         //drugi neki simbol
-        symbol_value = global_symbol_table[sym.symbol].value;
+        symbol_value = global_symbol_table[sym.symbol].value + section_addr[global_symbol_table[sym.symbol].section];
         byte1 = (symbol_value >> 24) & 0xFF; // Most significant byte
         byte2 = (symbol_value >> 16) & 0xFF;
         byte3 = (symbol_value >> 8) & 0xFF;
@@ -409,7 +411,15 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
     }
   }
 
-  printTables();
+  if (print){
+    printTables();
+  }
+  if (!checkSections()){
+    return -1;
+  }
+
+  generateOutput(output_file);
+  
 
   return 0;
 }
@@ -418,3 +428,75 @@ void Linker::printFinalAddr(){
     std::cout<<"Section: "<<entry.first<<" Address: "<<std::hex<<entry.second<<std::endl;
   }
 }
+
+void Linker::generateOutput(std::string output_name){
+
+  std::ofstream outfile("./"+output_name);
+  if (!outfile) {
+      std::cerr << "Error opening file for writing: " << output_name << std::endl;
+      return;
+  }
+
+
+  std::vector<unsigned int> starting_adr;
+  for (auto& section:section_addr){
+    starting_adr.push_back((unsigned int)section.second);
+  }
+
+  std::sort(starting_adr.begin(),starting_adr.end());
+
+  for (auto& adr:starting_adr){
+    std::string section_name;
+    for (auto& section:section_addr){
+      if (section.second == adr){
+        section_name = section.first;
+        break;
+      } 
+    }
+
+    //section_name i adr
+    bool flag = false;
+    for (int i=0;i<section_contents[section_name].size();i+=8){
+      int n=0;
+      outfile <<std::hex<< adr+i <<": ";
+      while(n<8){
+        if (i+n == section_contents[section_name].size()){
+          flag = true;
+          break;
+        }
+        unsigned char byte = section_contents[section_name][i+n];
+        
+        //std::cout<<byte<<" "<<first_half<<" "<<second_half<<std::endl;
+        outfile<<std::hex<<std::setw(2)<<std::setfill('0')<<(int)byte<<' ';
+        n++;
+      }
+      outfile<<'\n';
+      if (flag)break;
+    }
+  }
+
+
+  outfile.close();
+
+}
+bool Linker::checkSections(){
+  for (auto& entry:local_symbol_table){
+    int end = entry.second[entry.first].value + entry.second[entry.first].size;
+    int start = entry.second[entry.first].value;
+
+    for (auto& other_section:local_symbol_table){
+      int other_start = other_section.second[other_section.first].value;
+      int other_end = other_section.second[other_section.first].value + other_section.second[other_section.first].size;
+
+      if (other_section.first != entry.first && ((start < other_start && other_start < end)||(start < other_end && other_end < end))){
+        std::cout<<"Greska, sekcije "<<entry.first<<" i "<<other_section.first<<" se preklapaju!"<<std::endl;
+        std::cout<<"sekcija "<<entry.first<<" pocinje na "<<entry.second[entry.first].value <<" i zavrsava na "<<end<<std::endl;
+        std::cout<<"sekcija "<<other_section.first<<" pocinje na "<<other_section.second[other_section.first].value <<" i zavrsava na "<<other_section.second[other_section.first].value +other_section.second[other_section.first].size<<std::endl;
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+

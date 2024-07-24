@@ -41,9 +41,15 @@ int main(int argc, char* argv[]){
   std::unordered_map<std::string,int> section_addr; //-place opcija
   bool hex = false;
   std::regex regex(R"(-place=([^@]+)@([^@]+))");
+  bool print = false;
 
 
   for (int i=1;i<argc;i++){
+    if (std::string(argv[i]) == "-p"){
+      print = true;
+      continue;
+    }
+
     if (std::string(argv[i]) == "-o"){
       i++;
       output_file = std::string(argv[i]);
@@ -65,7 +71,7 @@ int main(int argc, char* argv[]){
   }
 
   Linker linker;
-  linker.begin(input_files,section_addr,hex,output_file);
+  linker.begin(input_files,section_addr,hex,output_file,print);
 
   
   

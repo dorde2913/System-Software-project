@@ -8,6 +8,8 @@
 #include <iomanip>
 #include <unordered_map>
 #include <bitset>
+#include <bits/stdc++.h>
+
 
 class Linker{
 private:
@@ -77,7 +79,11 @@ public:
   bool loadFile(std::string filename);
   bool checkSolved();
 
-  int begin(std::vector<std::string> input_files,std::unordered_map<std::string,int> place_addr,int hex, std::string output_file);
+  int begin(std::vector<std::string> input_files,std::unordered_map<std::string,int> place_addr,int hex, std::string output_file,bool print);
   void printFinalAddr();
+
+  void generateOutput(std::string output_name);
+  bool checkSections(); // da li se preklapaju sekcije
+  
 };
 #endif
