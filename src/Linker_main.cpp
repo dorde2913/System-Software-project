@@ -1,7 +1,7 @@
 #include "../inc/Linker.hpp"
 #include <regex>
 
-void handlePlace(std::string arg, std::unordered_map<std::string,int> &section_addr){
+void handlePlace(std::string arg, std::unordered_map<std::string,unsigned int> &section_addr){
   std::string section_name="";
   std::string adr_string="";
   int adr;
@@ -38,7 +38,7 @@ int main(int argc, char* argv[]){
   */
   std::string output_file;
   std::vector<std::string> input_files; // ulaz, obavezno
-  std::unordered_map<std::string,int> section_addr; //-place opcija
+  std::unordered_map<std::string,unsigned int> section_addr; //-place opcija
   bool hex = false;
   std::regex regex(R"(-place=([^@]+)@([^@]+))");
   bool print = false;

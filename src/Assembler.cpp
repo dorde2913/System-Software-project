@@ -533,9 +533,10 @@ void Assembler::addLine(Line& line){
       //1001 0000
       int r1_code = parseRegister(operands[0]);
       int r2_code = parseRegister(operands[1]);
-      r2_code<<4;
+      std::cout<<"csrrd code: "<<r2_code<<" "<<r1_code<<" operandi "<<operands[0]<<" "<<operands[1]<<std::endl;
+      r2_code = r2_code<<4;
       r2_code+=r1_code;
-
+      
       section_contents[current_section].push_back(144);//najvisibajt
       section_contents[current_section].push_back(r2_code);
       section_contents[current_section].push_back(0);
@@ -546,9 +547,10 @@ void Assembler::addLine(Line& line){
       //1001 0100 AAAA BBBB
       int r1_code = parseRegister(operands[0]);
       int r2_code = parseRegister(operands[1]);
-      r2_code<<4;
+      std::cout<<"csrwr code: "<<r2_code<<" "<<r1_code<<" operandi "<<operands[0]<<" "<<operands[1]<<std::endl;
+      r2_code = r2_code<<4;
       r2_code+=r1_code;
-
+      
       section_contents[current_section].push_back(148);//najvisibajt
       section_contents[current_section].push_back(r2_code);
       section_contents[current_section].push_back(0);
@@ -650,9 +652,9 @@ void Assembler::printTables(){
 int Assembler::parseRegister(std::string register_name){
   //treba da se doda za cause i jos neke
   //std::cout<<"Parsiramo registar: "<<register_name<<std::endl;
-  if (register_name == "%cause") return 0; //ovo nije ista instrukcija tkd moze da se preklapa valjda
+  if (register_name == "%cause") return 2; //ovo nije ista instrukcija tkd moze da se preklapa valjda
   if (register_name == "%handler") return 1;
-  if (register_name == "%status") return 2;
+  if (register_name == "%status") return 0;
 
   if (register_name == "%sp") return 14;
   if (register_name == "%pc") return 15;

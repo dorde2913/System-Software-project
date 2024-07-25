@@ -326,7 +326,7 @@ bool Linker::checkSolved(){
   return solved;
 }
 
-int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::string,int> place_addr,int hex, std::string output_file,bool print){
+int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::string,unsigned int> place_addr,int hex, std::string output_file,bool print){
 
   //prvi prolaz
   for (auto& file:input_files){
@@ -358,7 +358,7 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
     if (entry.second >= max_adr){
       location_counter+= local_symbol_table[entry.first][entry.first].size;
     }
-    
+    std::cout<<"location counter: "<<location_counter<<std::endl;
   }
 
   for (auto& entry:local_symbol_table){
@@ -394,6 +394,7 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
       else if (global_symbol_table.find(sym.symbol) != global_symbol_table.end()){
         //drugi neki simbol
         symbol_value = global_symbol_table[sym.symbol].value + section_addr[global_symbol_table[sym.symbol].section];
+        std::cout<<"Simbol: "<<sym.symbol<<" value: "<<symbol_value<<std::endl;
         byte1 = (symbol_value >> 24) & 0xFF; // Most significant byte
         byte2 = (symbol_value >> 16) & 0xFF;
         byte3 = (symbol_value >> 8) & 0xFF;

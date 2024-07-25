@@ -71,7 +71,7 @@ std::unordered_map<std::string,std::unordered_map<std::string,SymbolTableEntry>>
 std::unordered_map<std::string,std::vector<char>> section_contents;
 std::unordered_map<std::string,std::vector<RelocationTableEntry>> relocation_table;
 
-std::unordered_map<std::string,int> section_addr; //kopnacne adrese svih sekcija
+std::unordered_map<std::string,unsigned int> section_addr; //kopnacne adrese svih sekcija
 int max_adr = 0;
 int location_counter = 0;
 public:
@@ -79,7 +79,7 @@ public:
   bool loadFile(std::string filename);
   bool checkSolved();
 
-  int begin(std::vector<std::string> input_files,std::unordered_map<std::string,int> place_addr,int hex, std::string output_file,bool print);
+  int begin(std::vector<std::string> input_files,std::unordered_map<std::string,unsigned int> place_addr,int hex, std::string output_file,bool print);
   void printFinalAddr();
 
   void generateOutput(std::string output_name);

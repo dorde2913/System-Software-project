@@ -20,23 +20,37 @@ LINKER_SRC = $(patsubst %,$(SRCDIR)/%,$(_LINKER_SRC))
 
 TARGET_LINKER = linker
 
+_EMULATOR_DEPS = Emulator.hpp
+EMULATOR_DEPS = $(patsubst %,$(IDIR)/%,$(_EMULATOR_DEPS))
+
+_EMULATOR_SRC = Emulator_main.cpp Emulator.cpp
+EMULATOR_SRC = $(patsubst %,$(SRCDIR)/%,$(_EMULATOR_SRC))
+
+TARGET_EMULATOR = emulator
+
 CC = g++
 CFLAGS = -I$(IDIR)
 
-all: assembler linker
+all: assembler linker emulator
 
 assembler:
 	$(CC) -o $(TARGET_ASSEMBLER) $(ASSEMBLER_SRC) $(CFLAGS)
 linker:
 	$(CC) -o $(TARGET_LINKER) $(LINKER_SRC) $(CFLAGS)
+emulator:
+	$(CC) -o $(TARGET_EMULATOR) $(EMULATOR_SRC) $(CFLAGS)
 
 clean:
 	rm -f assembler
 	rm -f linker
+	rm -f emulator
 
 cleanlinker:
 	rm -f linker
 
 cleanassembler:
 	rm -f assembler
+
+cleanemulator:
+	rm -f emulator
 
