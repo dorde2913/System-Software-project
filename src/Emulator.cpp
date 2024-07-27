@@ -15,13 +15,16 @@ void Emulator::loadMem(){
   }
 }
 
-void Emulator::beginExec(){
+void Emulator::beginExec(bool debug){
   std::vector<unsigned char> bytes = getInstruction(); 
   unsigned int instruction = (unsigned int) bytes[0];
   
   bool halt = false;
-
+  
   while(!halt){
+    if (debug){
+      std::cin.get();
+    }
     std::cout<<"INSTRUKCIJA: "<<(unsigned int)instruction<<std::endl;
     unsigned int reg_a = (bytes[1] & 0xF0)>>4;
     unsigned int reg_b = bytes[1] & 0x0F;
@@ -31,12 +34,13 @@ void Emulator::beginExec(){
     
 
     std::cout<<"Reg A: "<<reg_a<<" Reg B: "<<reg_b <<" Reg C: "<<reg_c<<" Offset: "<<offset<<std::endl;
-
-    int temp;
+    printRegisters();
+    unsigned int temp;
     unsigned int final_address;
     unsigned int address;
     char temp_bytes[4];
-
+    
+   
     switch(instruction){
       case 0:
         //halt
@@ -45,56 +49,91 @@ void Emulator::beginExec(){
 
       case 16:
         //int
-        push(status);
+        //regs[1]=pop();//temp
         push(regs[15]);
+        push(status);
+        
+        
+       
         cause = 4;
         status = status & (~0x1);
         regs[15] = handler;
+        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
       
       case 32:
-      case 33:
+        //call direkt i call mem
+        std::cout<<"Izvrsen call"<<std::endl;
+        address = getOperand();
         push(regs[15]);
+        std::cout<<"32 "<<regs[15]<<std::endl;
         if (instruction == 32){
-          regs[15] = regs[reg_a] + regs[reg_b] + offset;
+          regs[15] = address;
         }
+        /*
         else if (instruction == 33){
           regs[15] = mem[regs[reg_a] + regs[reg_b] + offset];
-        }
-        std::cout<<"PC = "<<std::hex<<regs[15]<<std::endl;
+        } mislim da ovo nemamo
+        */
+        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
 
-      case 48:
-        regs[15] = regs[reg_a] + offset;
+      case 48://jmp
+        address = getOperand();
+        regs[15] = address;
+        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
       
       case 49:
-        if (regs[reg_b] == regs[reg_c])regs[15] = regs[reg_a] + offset;
+        address = getOperand();
+        if (regs[reg_b] == regs[reg_c])regs[15] = address;
+        
+        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
       
       case 50:
-        if (regs[reg_b] != regs[reg_c])regs[15] = regs[reg_a] + offset;
+        address = getOperand();
+        if (regs[reg_b] != regs[reg_c])regs[15] = address;
+        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
       
       case 51:
-        if (regs[reg_b] > regs[reg_c])regs[15] = regs[reg_a] + offset;
+        address = getOperand();
+        if (regs[reg_b] > regs[reg_c])regs[15] = address;
+        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
-
+      /*
       case 56:
         regs[15] = mem[regs[reg_a] + offset];
+        //pop();
+        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
 
       case 57:
-        if (reg_b != reg_c)regs[15] = mem[regs[reg_a] + offset];
+        if (reg_b != reg_c){
+          regs[15] = mem[regs[reg_a] + offset];
+          regs[reg_a]=pop();
+        }
+        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
       
       case 58:
-        if (reg_b != reg_c)regs[15] = mem[regs[reg_a] + offset];
+        if (reg_b != reg_c){
+          regs[15] = mem[regs[reg_a] + offset];
+          regs[reg_a]=pop();
+        }
+        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
 
       case 59:
-        if (reg_b != reg_c)regs[15] = mem[regs[reg_a] + offset];
+        if (reg_b != reg_c){
+          regs[15] = mem[regs[reg_a] + offset];
+          regs[reg_a]=pop();
+        }
+        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
+      */
+      
 
       case 64:
         temp = regs[reg_b];
@@ -143,41 +182,68 @@ void Emulator::beginExec(){
         break;
 
       case 128:
-        address = regs[reg_a] + regs[reg_b] + offset;
         temp_bytes[0] = (regs[reg_c] >> 24) & 0xFF;
         temp_bytes[1] = (regs[reg_c] >> 16) & 0xFF;
         temp_bytes[2] = (regs[reg_c] >> 8) & 0xFF;
         temp_bytes[3] = regs[reg_c] & 0xFF; // Least significant byte
-
-        for (int i=0;i<4;i++){
-          mem[address+i] = temp_bytes[i];
+        if (reg_b == 0){
+          address = getOperand();
+          for (int i=0;i<4;i++){
+            mem[address+i] = temp_bytes[i];
+          }
         }
+        else{
+          address = regs[reg_b] + regs[reg_c] + offset;
+          for (int i=0;i<4;i++){
+            mem[address+i] = temp_bytes[i];
+          }
+        }
+        
+
+        
         break;
       
       case 130:
-        address = regs[reg_a] + regs[reg_b] + offset;
-        final_address = 0;
-
-        for (int i=0;i<4;i++){
-          temp_bytes[i] = mem[address+i];
-        }
-        for (int i=0;i<4;i++){
-          final_address += temp_bytes[i]<<(i*8);
-        }
-
         temp_bytes[0] = (regs[reg_c] >> 24) & 0xFF;
         temp_bytes[1] = (regs[reg_c] >> 16) & 0xFF;
         temp_bytes[2] = (regs[reg_c] >> 8) & 0xFF;
         temp_bytes[3] = regs[reg_c] & 0xFF; // Least significant byte
+        if (reg_b == 0){
+          address = getOperand();
+          final_address = 0;
+          for (int i=0;i<4;i++){
+            final_address+=mem[address+i];
+            final_address = final_address<<8;
+          }
 
-        for (int i=0;i<4;i++){
-          mem[final_address+i] = temp_bytes[i];
+          for (int i=0;i<4;i++){
+            mem[final_address+i] = temp_bytes[i];
+          }
+        }
+        else{
+          address = regs[reg_b] + regs[reg_c] + offset;
+
+          for (int i=0;i<4;i++){
+            final_address+=mem[address+i];
+            final_address = final_address<<8;
+          }
+
+          for (int i=0;i<4;i++){
+            mem[final_address+i] = temp_bytes[i];
+          }
         }
         
         break;
       
       case 129:
-        push(regs[reg_c]);
+        if (reg_b == 15){
+          push(regs[reg_b]);
+          std::cout<<"pushed pc: "<<regs[reg_b]<<std::endl;
+        }
+        else{
+          push(regs[reg_b]);
+        }
+        
         break;
 
       case 144:
@@ -198,26 +264,48 @@ void Emulator::beginExec(){
         break;
 
       case 145:
-        std::cout<<"TEST"<<std::endl;
-        offset = (((unsigned int) bytes[2])<<8) + ((unsigned int) bytes[3]);
-        std::cout<<"OFFSET U LOAD 16BIT: "<<offset<<std::endl;
-        regs[reg_a] = regs[reg_a] & 0xFFFF0000;
-        regs[reg_a] += ((regs[reg_b]+offset) & 0x0000FFFF);
-        std::cout<<"Reg "<<reg_a<<": "<<regs[reg_a]<<std::endl;
+        if (reg_c == 15){
+          //znaci da je operand sledeci
+          temp = getOperand();
+          std::cout<<"OPERAND: "<<temp<<std::endl;
+          regs[reg_a] = regs[reg_b] + temp;
+        }
+        else{
+          regs[reg_a] = regs[reg_b] + offset;
+        }
+
         break;
       
       case 146:
-        address = regs[reg_b]+regs[reg_c]+offset;
-        regs[reg_a] = 0;
-
-        for (int i=0;i<4;i++){
-          regs[reg_a] += mem[address+i];
-          regs[reg_a] = regs[reg_a] <<8;
+        if (reg_c == 15){
+          //znaci da je operand sledeci
+          address = getOperand();
+          temp = 0;
+          regs[reg_a] = 0;
+          for (int i=3;i>=0;i--){
+            temp = mem[regs[reg_c]+regs[reg_b]-i+3 + address];
+            temp = temp<<(i*8);
+            regs[reg_a]+=temp;
+          }
         }
+        else{
+          temp = 0;
+          regs[reg_a] = 0;
+          for (int i=3;i>=0;i--){
+            temp = mem[regs[reg_c]+regs[reg_b]-i+3 + offset];
+            temp = temp<<(i*8);
+            //std::cout<<"Temp: "<<temp<<std::endl;
+            //std::cout<<"Adresa: "<<(regs[reg_c]+regs[reg_b]-i+3)<<std::endl;
+            regs[reg_a]+=temp;
+          }
+        }
+        
+
+        
         break;
 
       case 147:
-        regs[reg_a]=pop();
+        regs[reg_b]=pop();
         break;
       
       case 148:
@@ -286,37 +374,16 @@ void Emulator::beginExec(){
         break;
 
       case 151:
-        address = regs[reg_b] + regs[reg_c] + offset;
-        final_address = 0;
-
-        for (int i=0;i<4;i++){
-          temp_bytes[i] = mem[address+i];
-        }
-        for (int i=0;i<4;i++){
-          final_address += temp_bytes[i]<<(i*8);
-        }
 
         switch(reg_a){
           case 0:
-            status = 0;
-            for (int i=0;i<4;i++){
-              status += mem[final_address+i];
-              status = status<<8;
-            }
+            status = pop();
             break;
           case 1:
-            handler = 0;
-            for (int i=0;i<4;i++){
-              handler += mem[final_address+i];
-              handler = handler<<8;
-            }
+            handler = pop();
             break;
           case 2:
-            cause = 0;
-            for (int i=0;i<4;i++){
-              cause += mem[final_address+i];
-              cause = cause<<8;
-            }
+            cause = pop();
             break;
           default:
             std::cout<<"Error, invalid csr register: "<<reg_b<<std::endl;
@@ -328,10 +395,10 @@ void Emulator::beginExec(){
         std::cout<<"ERROR, UNKNOWN INSTRUCTION CODE: "<<instruction<<std::endl;
         return;
     }
+    
     if (!halt){
       bytes = getInstruction();
       instruction = bytes[0];
-      printRegisters();
     }
     else{
       std::cout<<"Emulated processor executed halt instgruction"<<std::endl;
@@ -388,7 +455,7 @@ std::vector<unsigned char> Emulator::getContent(std::string line){
 }
 
 std::vector<unsigned char> Emulator::getInstruction(){
-  std::cout<<"PC = "<<std::hex<<regs[15]<<std::endl;
+  //std::cout<<"PC = "<<std::hex<<regs[15]<<std::endl;
   std::vector<unsigned char> ret;
   for (int i=0;i<4;i++){
     ret.push_back(mem[regs[15]+i]);
@@ -398,26 +465,34 @@ std::vector<unsigned char> Emulator::getInstruction(){
   return ret;
 }
 
-void Emulator::push(int content){
-  char bytes[4];
-  bytes[0] = (content >> 24) & 0xFF;
-  bytes[1] = (content >> 16) & 0xFF;
-  bytes[2] = (content >> 8) & 0xFF;
-  bytes[3] = content & 0xFF; // Least significant byte
-  for (int i=0;i<4;i++){
-    std::cout<<"Adresa u koju upisujemo: "<<regs[14]-i<<std::endl;
-    mem[(unsigned int)(regs[14]-i)] = bytes[i];
+void Emulator::push(unsigned int content){
+  
+  unsigned char bytes[4];
+  bytes[0] = content & 0xFF;
+  bytes[1] = (content >> 8) & 0xFF;
+  bytes[2] = (content >> 16) & 0xFF;
+  bytes[3] = (content >> 24) & 0xFF; // Least significant byte
+  for (int i=1;i<5;i++){
+    //std::cout<<"Adresa u koju upisujemo: "<<regs[14]-i<<std::endl;
+    mem[(unsigned int)(regs[14]-i)] = bytes[i-1];
   }
   regs[14]-=4;
 }
 
 unsigned int Emulator::pop(){
-  unsigned int ret = mem[regs[14]];
+  unsigned int ret = 0;
+  ret+=((unsigned int)mem[regs[14]+1])<<16;
+  ret+=((unsigned int)mem[regs[14]])<<24;
+  ret+=((unsigned int)mem[regs[14]+2])<<8;
+  ret+=((unsigned int)mem[regs[14]+3]);
+  
+  
   regs[14]+=4;
   return ret;
 }
 
 void Emulator::printRegisters(){
+  std::cout<<std::hex;
   for (int i=0;i<16;i+=4){
     std::cout<<"r"<<i<<"="<<regs[i]<<"     ";
     std::cout<<"r"<<i+1<<"="<<regs[i+1]<<"     ";
@@ -427,4 +502,42 @@ void Emulator::printRegisters(){
   std::cout<<"Cause "<<cause<<std::endl;
   std::cout<<"Handler "<<handler<<std::endl;
   std::cout<<"Status "<<status<<std::endl;
+
+  std::cout<<"Mem[SP] "<<(unsigned int)mem[regs[14]]<<"|"
+  <<(unsigned int)mem[regs[14]+1]<<"|"<<
+  (unsigned int)mem[regs[14]+2]<<"|"<<
+  (unsigned int)mem[regs[14]+3]<<"|"<<
+  (unsigned int)mem[regs[14]+4]<<"|"<<
+  (unsigned int)mem[regs[14]+5]<<"|"<<
+  (unsigned int)mem[regs[14]+6]<<"|"<<
+  (unsigned int)mem[regs[14]+7]<<"|"<<
+  (unsigned int)mem[regs[14]+8]<<"|"<<
+  (unsigned int)mem[regs[14]+9]<<"|"<<
+  (unsigned int)mem[regs[14]+10]<<"|"<<
+  (unsigned int)mem[regs[14]+11]<<"|"<<
+  (unsigned int)mem[regs[14]+12]<<"|"<<
+  (unsigned int)mem[regs[14]+13]<<"|"<<
+  (unsigned int)mem[regs[14]+14]<<"|"<<
+  (unsigned int)mem[regs[14]+15]<<"|"<<
+  (unsigned int)mem[regs[14]+16]<<"|"<<
+  (unsigned int)mem[regs[14]+17]<<"|"<<
+  (unsigned int)mem[regs[14]+18]<<"|"<<
+  (unsigned int)mem[regs[14]+19]<<"|"<<std::endl;
+}
+
+unsigned int Emulator::getOperand(){
+  std::cout<<"CITAMO OPERAND SA: "<<regs[15]<<std::endl;
+  unsigned int ret = 0;
+  unsigned int temp;
+  //std::cout<<"citamo operand sa adrese: "<<regs[15]<<" i sledece 3"<<std::endl;
+  for (int i=3;i>=0;i--){
+    //std::cout<<"Procitan bajt: "<<(unsigned int)mem[regs[15]+i]<<" sa adrese"<<regs[15]+i<<std::endl;
+    temp = mem[regs[15]-i+3];
+    temp = temp << (8*i);
+    ret+=temp;
+    //std::cout<<"RET:  "<<ret<<std::endl;
+  }
+  regs[15]+=4;
+  
+  return ret;
 }

@@ -84,6 +84,8 @@ public:
 
   void generateOutput(std::string output_name);
   bool checkSections(); // da li se preklapaju sekcije
+
+  bool word(std::string section,int location);
   
 };
 #endif

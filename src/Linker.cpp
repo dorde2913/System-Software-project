@@ -225,12 +225,7 @@ bool Linker::loadFile(std::string filename){
     }
   }
   
-  //prolazimo kroz lokalnu tabelu -> kad naidjemo na sekciju prodjemo kroz sve globalne(koji nisu extern) i dodamo na value
-  //kad naidjemo na nesto drugo samo dodajemo na value ako ta sekcija postoji
-  //DODAVANJE U FULL TABELU TEK POSLE 
-  //prolazimo kroz globalne simbole, ako imamo duplikat ali sad definisan ubacujemo, kao i ako nije duplikat
-  //prolaz kroz reloc tabelu,na svaki offset dodajemo velicinu postojece sekcije
-  //prolaz kroz section_contents samo se sve nadovezuje
+  
 
   for (auto& local_entry:temp_local_symbol_table){
     for (auto& global_entry:local_symbol_table){
@@ -241,7 +236,6 @@ bool Linker::loadFile(std::string filename){
             entry.second.value+=global_entry.second[local_entry.first].size;
           }
         }
-
         for (auto& entry:temp_global_symbol_table){
           if (entry.second.section == local_entry.first){
             entry.second.value+=global_entry.second[local_entry.first].size;
@@ -269,6 +263,17 @@ bool Linker::loadFile(std::string filename){
   }
 
   for (auto& temp_entry:temp_relocation_table){
+    if (relocation_table.find(temp_entry.first) == relocation_table.end()){
+      //nema ove sekcije, relok sadrzaj se kasnije dodaje u veliku tabelu, ovde samo dodajemo na offset
+      if (local_symbol_table.find(temp_entry.first)!=local_symbol_table.end()){
+        //ima sekcija
+        for (auto& rel:temp_entry.second){
+          rel.offset+=local_symbol_table[temp_entry.first][temp_entry.first].size;
+        }
+      }
+      
+      
+    }
     for (auto& global_entry:relocation_table){
       if (global_entry.first == temp_entry.first){
         for (auto& entry:temp_entry.second){
@@ -333,6 +338,7 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
     loadFile(file);
   }
   if (!checkSolved()){
+    printTables();
     return -1;
   }
   
@@ -374,10 +380,10 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
     entry.second[entry.first].value = section_addr[entry.first];
   }
   int symbol_value;
-  char byte1,byte2,byte3,byte4;
+  unsigned char byte1,byte2,byte3,byte4;
   for (auto& reloc_entry:relocation_table){
     for (auto& sym:reloc_entry.second){
-      
+      std::cout<<"Relociramo simbol: "<<sym.symbol<<" Addend: "<<sym.addend<<std::endl;
       if (local_symbol_table.find(sym.symbol) != local_symbol_table.end()){
         //sekcija
         symbol_value = local_symbol_table[reloc_entry.first][sym.symbol].value+sym.addend;
@@ -385,25 +391,33 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
         byte2 = (symbol_value >> 16) & 0xFF;
         byte3 = (symbol_value >> 8) & 0xFF;
         byte4 = symbol_value & 0xFF; // Least significant byte
-
-        section_contents[reloc_entry.first][sym.offset-18] = byte1;
-        section_contents[reloc_entry.first][sym.offset-17] = byte2;
+        
+        //ovde upisujemo
+        section_contents[reloc_entry.first][sym.offset-4] = byte1;
+        section_contents[reloc_entry.first][sym.offset-3] = byte2;
         section_contents[reloc_entry.first][sym.offset-2] = byte3;
         section_contents[reloc_entry.first][sym.offset-1] = byte4;
+          std::cout<<"Relokacija odradjena na adresama: "<<(sym.offset+section_addr[reloc_entry.first])-4<<" "<<(sym.offset+section_addr[reloc_entry.first])-3<<" "
+          <<(sym.offset+section_addr[reloc_entry.first])-2<<" "<<(sym.offset+section_addr[reloc_entry.first])-1<<" "<<std::endl;
+        
       }
       else if (global_symbol_table.find(sym.symbol) != global_symbol_table.end()){
         //drugi neki simbol
         symbol_value = global_symbol_table[sym.symbol].value + section_addr[global_symbol_table[sym.symbol].section];
-        std::cout<<"Simbol: "<<sym.symbol<<" value: "<<symbol_value<<std::endl;
         byte1 = (symbol_value >> 24) & 0xFF; // Most significant byte
         byte2 = (symbol_value >> 16) & 0xFF;
         byte3 = (symbol_value >> 8) & 0xFF;
         byte4 = symbol_value & 0xFF; // Least significant byte
 
-        section_contents[reloc_entry.first][sym.offset-18] = byte1;
-        section_contents[reloc_entry.first][sym.offset-17] = byte2;
+       
+        //ovde upisujemo
+        section_contents[reloc_entry.first][sym.offset-4] = byte1;
+        section_contents[reloc_entry.first][sym.offset-3] = byte2;
         section_contents[reloc_entry.first][sym.offset-2] = byte3;
         section_contents[reloc_entry.first][sym.offset-1] = byte4;
+        std::cout<<"Relokacija odradjena na adresama: "<<(sym.offset+section_addr[reloc_entry.first])-4<<" "<<(sym.offset+section_addr[reloc_entry.first])-3<<" "
+          <<(sym.offset+section_addr[reloc_entry.first])-2<<" "<<(sym.offset+section_addr[reloc_entry.first])-1<<" "<<std::endl;
+       
       }
       else{
         std::cout<<"Error, nedefinisan simbol: "<<sym.symbol<<std::endl;
@@ -501,3 +515,14 @@ bool Linker::checkSections(){
 }
 
 
+bool Linker::word(std::string section, int location){
+  if ((location+3)<=section_contents[section].size()){
+    if (section_contents[section][location] == 0
+    && section_contents[section][location+1] == 0
+    && section_contents[section][location+2] == 0
+    && section_contents[section][location+3] == 0){
+      return true;
+    }
+  }
+  return false;
+}

@@ -28,7 +28,7 @@ public:
   }
 
   void loadMem();
-  void beginExec();
+  void beginExec(bool debug);
   int getAdr(std::string line);
   std::vector<unsigned char> getContent(std::string line);
 
@@ -36,9 +36,10 @@ public:
   void printRegisters();
 
   //neke instrukcije koje se ponavljaju:
-  void push(int content);
+  void push(unsigned int content);
   unsigned int pop();
   
+  unsigned int getOperand();
 };
 
 #endif
