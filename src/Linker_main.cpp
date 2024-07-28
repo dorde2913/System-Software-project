@@ -73,28 +73,5 @@ int main(int argc, char* argv[]){
   Linker linker;
   linker.begin(input_files,section_addr,hex,output_file,print);
 
-  
-  
-
-/*
-  std::cout<<"Input files: "<<std::endl;
-  for (auto& file:input_files){
-    std::cout<<file<<" ";
-  }
-  std::cout<<std::endl;
-
-  std::cout<<"Place options: "<<std::endl;
-  for (auto& entry:section_addr){
-    std::cout<<entry.first<<": "<<entry.second<<"; ";
-  }
-  std::cout<<std::endl;
-  
-  std::cout<<"hex: "<<hex<<std::endl;
-
-  std::cout<<"Output file: "<<output_file<<std::endl;
-*/
-  
-
-  
   return 0;
 }

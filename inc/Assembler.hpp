@@ -156,14 +156,14 @@ Atributi asemblera
   int parseRegister(std::string reg_name);
   int parseMemoryOperand(std::string symbol,int type);
   int getMemType(std::string operand);
-  int handleSymbol(std::string sym);
+  
   void pushInstruction(unsigned char first,unsigned char second,unsigned char third,unsigned char fourth);
   void writeToOutput();
   void push32bit(int value);
   void handleLabel(std::string label);
   void handleDirective(std::string directive, std::vector<std::string> operands);
-  void loadOperandToRegister(int reg_code,std::string operand,std::string instruction);
-  void handleLoadStore(std::string instruction,int reg_code,std::string operand,int mem_type);
+  void pushOperand(int reg_code,std::string operand,std::string instruction);
+  
 
   std::string removeDollar(std::string operand);
 };

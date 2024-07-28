@@ -106,8 +106,8 @@ bool Linker::loadFile(std::string filename){
       std::cerr << "Error opening file for reading: " << filename << std::endl;
       return false;
   }
-  std::cout<<"opened file: "<<filename<<std::endl;
-  // Read the number of entries
+  std::cout<<"opened file for linking: "<<filename<<std::endl;
+
   size_t size;
   infile.read(reinterpret_cast<char*>(&size), sizeof(size));
   
@@ -129,35 +129,23 @@ bool Linker::loadFile(std::string filename){
     //ako su i postojeci i nas extern onda nista, ako oba nisu extern to je greska dupla definicija
     //na kraju linkovanja ako je ostalo ista extern to je greska nedefinisan simbol :)
 
-    
-    
-
-
     if (!entry.is_global && !entry.is_extern){
-      
       if (temp_local_symbol_table.find(entry.section)!=temp_local_symbol_table.end()){
-        
         //vec imamo ovu sekciju
         if (name!=entry.section){
           if (temp_local_symbol_table[entry.section].find(name)!=temp_local_symbol_table[entry.section].end()) {
             std::cout<<"Greska, visestruka definicija lokalnog simbola: "<<name<<std::endl;
             return false;
           }
-          //entry.value+=local_symbol_table[entry.section][entry.section].size;
           temp_local_symbol_table[entry.section][name] = entry;
         }
         else{
           temp_local_symbol_table[entry.section][name] = entry;
         }
-        
-
-
-        
       }
       else{
         temp_local_symbol_table[entry.section][name] = entry;
       }
-      
     }
     else{
       
@@ -179,7 +167,6 @@ bool Linker::loadFile(std::string filename){
     
   }
   
-
   //velicina reloc tabele
   infile.read(reinterpret_cast<char*>(&size), sizeof(size));
   for (int i=0;i<size;i++){
@@ -202,11 +189,8 @@ bool Linker::loadFile(std::string filename){
       infile.read(reinterpret_cast<char*>(&new_entry.addend), sizeof(new_entry.addend));
       infile.read(reinterpret_cast<char*>(&new_entry.offset), sizeof(new_entry.offset));
       
-      
       temp_relocation_table[section_name].push_back(new_entry);
     }
-    
-    
   }
 
   infile.read(reinterpret_cast<char*>(&size), sizeof(size));
@@ -225,8 +209,6 @@ bool Linker::loadFile(std::string filename){
     }
   }
   
-  
-
   for (auto& local_entry:temp_local_symbol_table){
     for (auto& global_entry:local_symbol_table){
       if (local_entry.first == global_entry.first){
@@ -271,8 +253,6 @@ bool Linker::loadFile(std::string filename){
           rel.offset+=local_symbol_table[temp_entry.first][temp_entry.first].size;
         }
       }
-      
-      
     }
     for (auto& global_entry:relocation_table){
       if (global_entry.first == temp_entry.first){
@@ -314,8 +294,6 @@ bool Linker::loadFile(std::string filename){
       local_symbol_table[temp_entry.first] = temp_entry.second;
     }
   }
-
-
 
   infile.close();
   return true;
@@ -364,7 +342,6 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
     if (entry.second >= max_adr){
       location_counter+= local_symbol_table[entry.first][entry.first].size;
     }
-    std::cout<<"location counter: "<<location_counter<<std::endl;
   }
 
   for (auto& entry:local_symbol_table){
@@ -383,7 +360,6 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
   unsigned char byte1,byte2,byte3,byte4;
   for (auto& reloc_entry:relocation_table){
     for (auto& sym:reloc_entry.second){
-      std::cout<<"Relociramo simbol: "<<sym.symbol<<" Addend: "<<sym.addend<<std::endl;
       if (local_symbol_table.find(sym.symbol) != local_symbol_table.end()){
         //sekcija
         symbol_value = local_symbol_table[reloc_entry.first][sym.symbol].value+sym.addend;
@@ -397,8 +373,11 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
         section_contents[reloc_entry.first][sym.offset-3] = byte2;
         section_contents[reloc_entry.first][sym.offset-2] = byte3;
         section_contents[reloc_entry.first][sym.offset-1] = byte4;
+        if (print){
           std::cout<<"Relokacija odradjena na adresama: "<<(sym.offset+section_addr[reloc_entry.first])-4<<" "<<(sym.offset+section_addr[reloc_entry.first])-3<<" "
           <<(sym.offset+section_addr[reloc_entry.first])-2<<" "<<(sym.offset+section_addr[reloc_entry.first])-1<<" "<<std::endl;
+        }
+          
         
       }
       else if (global_symbol_table.find(sym.symbol) != global_symbol_table.end()){
@@ -415,9 +394,10 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
         section_contents[reloc_entry.first][sym.offset-3] = byte2;
         section_contents[reloc_entry.first][sym.offset-2] = byte3;
         section_contents[reloc_entry.first][sym.offset-1] = byte4;
-        std::cout<<"Relokacija odradjena na adresama: "<<(sym.offset+section_addr[reloc_entry.first])-4<<" "<<(sym.offset+section_addr[reloc_entry.first])-3<<" "
+        if (print){
+          std::cout<<"Relokacija odradjena na adresama: "<<(sym.offset+section_addr[reloc_entry.first])-4<<" "<<(sym.offset+section_addr[reloc_entry.first])-3<<" "
           <<(sym.offset+section_addr[reloc_entry.first])-2<<" "<<(sym.offset+section_addr[reloc_entry.first])-1<<" "<<std::endl;
-       
+        }
       }
       else{
         std::cout<<"Error, nedefinisan simbol: "<<sym.symbol<<std::endl;
@@ -432,9 +412,7 @@ int Linker::begin(std::vector<std::string> input_files,std::unordered_map<std::s
   if (!checkSections()){
     return -1;
   }
-
   generateOutput(output_file);
-  
 
   return 0;
 }
@@ -451,7 +429,6 @@ void Linker::generateOutput(std::string output_name){
       std::cerr << "Error opening file for writing: " << output_name << std::endl;
       return;
   }
-
 
   std::vector<unsigned int> starting_adr;
   for (auto& section:section_addr){
@@ -489,7 +466,6 @@ void Linker::generateOutput(std::string output_name){
       if (flag)break;
     }
   }
-
 
   outfile.close();
 
