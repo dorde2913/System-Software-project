@@ -142,19 +142,19 @@ void Emulator::beginExec(bool debug){
         break;
       
       case 80:
-        regs[reg_a] = regs[reg_b] + regs[reg_c];
+        regs[reg_a] = regs[reg_c]+regs[reg_b];
         break;
       
       case 81:
-        regs[reg_a] = regs[reg_b] - regs[reg_c];
+        regs[reg_a] = regs[reg_c] - regs[reg_b];
         break;
 
       case 82:
-        regs[reg_a] = regs[reg_b] * regs[reg_c];
+        regs[reg_a] = regs[reg_c] * regs[reg_b];
         break;
 
       case 83:
-        regs[reg_a] = regs[reg_b] / regs[reg_c];
+        regs[reg_a] = regs[reg_c] / regs[reg_b];
         break;
 
       case 96:
@@ -162,15 +162,15 @@ void Emulator::beginExec(bool debug){
         break;
       
       case 97:
-        regs[reg_a] = regs[reg_b] & regs[reg_c];
+        regs[reg_a] = regs[reg_b] & regs[reg_a];
         break;
       
       case 98:
-        regs[reg_a] = regs[reg_b] | regs[reg_c];
+        regs[reg_a] = regs[reg_b] | regs[reg_a];
         break;
 
       case 99:
-        regs[reg_a] = regs[reg_b] ^ regs[reg_c];
+        regs[reg_a] = regs[reg_b] ^ regs[reg_a];
         break;
 
       case 112:
@@ -190,12 +190,14 @@ void Emulator::beginExec(bool debug){
           address = getOperand();
           for (int i=0;i<4;i++){
             mem[address+i] = temp_bytes[i];
+            std::cout<<"Na adresu "<<address+i<<" upisano: "<<(unsigned int)temp_bytes[i]<<std::endl;
           }
         }
         else{
-          address = regs[reg_b] + regs[reg_c] + offset;
+          address = regs[reg_b] + offset;
           for (int i=0;i<4;i++){
             mem[address+i] = temp_bytes[i];
+            std::cout<<"Na adresu "<<address+i<<" upisano: "<<(unsigned int)temp_bytes[i]<<std::endl;
           }
         }
         
@@ -267,7 +269,7 @@ void Emulator::beginExec(bool debug){
         if (reg_c == 15){
           //znaci da je operand sledeci
           temp = getOperand();
-          std::cout<<"OPERAND: "<<temp<<std::endl;
+         
           regs[reg_a] = regs[reg_b] + temp;
         }
         else{
@@ -283,7 +285,8 @@ void Emulator::beginExec(bool debug){
           temp = 0;
           regs[reg_a] = 0;
           for (int i=3;i>=0;i--){
-            temp = mem[regs[reg_c]+regs[reg_b]-i+3 + address];
+            temp = mem[regs[reg_b]-i+3 + address];
+            std::cout<<"Sa adrese "<<regs[reg_b]-i+3 + address<<" procitano: "<<temp<<std::endl;
             temp = temp<<(i*8);
             regs[reg_a]+=temp;
           }
@@ -538,6 +541,6 @@ unsigned int Emulator::getOperand(){
     //std::cout<<"RET:  "<<ret<<std::endl;
   }
   regs[15]+=4;
-  
+  std::cout<<"OPERAND: "<<ret<<std::endl;
   return ret;
 }

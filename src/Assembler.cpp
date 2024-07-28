@@ -245,91 +245,88 @@ void Assembler::addLine(Line& line){
       unsigned int r1_code = parseRegister(operands[0]);
       unsigned int r2_code = parseRegister(operands[1]);
       unsigned int c_code = (r2_code<<4) & 0xFF;
-       std::cout<<"REGISTAR A: "<<operands[1]<<std::endl;
-      std::cout<<"REGISTAR B: "<<operands[0]<<std::endl;
-
-      std::cout<<"REGISTAR A: "<<r2_code<<std::endl;
-      std::cout<<"REGISTAR B: "<<r1_code<<std::endl;
+       
 
       r2_code = (r2_code<<4) & 0xF0;
       r2_code+=(r1_code & 0x0F);
-      
-      
 
       pushInstruction(80,r2_code,c_code,0);
     }
     else if (instruction == "sub"){
       //2 registra
       //r1 = r1-r2
-      int r1_code = parseRegister(operands[0]);
-      int r2_code = parseRegister(operands[1]);
-      int c_code = r2_code<<4;
-      r2_code = r2_code<<4;
-      r2_code+=r1_code;
-      
+      unsigned int r1_code = parseRegister(operands[0]);
+      unsigned int r2_code = parseRegister(operands[1]);
+      unsigned int c_code = (r2_code<<4) & 0xFF;
+       
+
+      r2_code = (r2_code<<4) & 0xF0;
+      r2_code+=(r1_code & 0x0F);
+
       pushInstruction(81,r2_code,c_code,0);
     }
     else if (instruction == "mul"){
       //2 reg, r1 = r1*r2
-      int r1_code = parseRegister(operands[0]);
-      int r2_code = parseRegister(operands[1]);
-      int c_code = r2_code<<4;
-      r2_code = r2_code<<4;
-      r2_code+=r1_code;
-      
+      unsigned int r1_code = parseRegister(operands[0]);
+      unsigned int r2_code = parseRegister(operands[1]);
+      unsigned int c_code = (r2_code<<4) & 0xFF;
+       
+
+      r2_code = (r2_code<<4) & 0xF0;
+      r2_code+=(r1_code & 0x0F);
+
       pushInstruction(82,r2_code,c_code,0);
     }
     else if (instruction == "div"){
       //2 reg, r1 = r1/r2
-      int r1_code = parseRegister(operands[0]);
-      int r2_code = parseRegister(operands[1]);
-      int c_code = r2_code<<4;
-      r2_code = r2_code<<4;
-      r2_code+=r1_code;
-      
+      unsigned int r1_code = parseRegister(operands[0]);
+      unsigned int r2_code = parseRegister(operands[1]);
+      unsigned int c_code = (r2_code<<4) & 0xFF;
+       
+
+      r2_code = (r2_code<<4) & 0xF0;
+      r2_code+=(r1_code & 0x0F);
+
       pushInstruction(83,r2_code,c_code,0);
     }
     else if (instruction == "not"){
       //1 reg, r1 = !r1
       // 0110 0000 AAAA BBBB CCCC 0000 0000 0000
       // ovde je c 0, znaci zadnja 2 su 0
-      int r1_code = parseRegister(operands[0]);
-      int r2_code = parseRegister(operands[1]);
-      r2_code = r2_code<<4;
-      r2_code+=r1_code;
+      unsigned int r1_code = parseRegister(operands[0]);
+      unsigned int r2_code = parseRegister(operands[1]);
+      r2_code = (r2_code<<4) & 0xF0;
+      r2_code+=(r1_code & 0x0F);
 
       pushInstruction(96,r2_code,0,0);
     }
     else if (instruction == "and"){
       //2 reg, r1= r1&r2
       //ovde c == A
-      int r1_code = parseRegister(operands[0]);
-      int r2_code = parseRegister(operands[1]);
-      int c_code = r2_code<<4;
-      r2_code = r2_code<<4;
-      r2_code+=r1_code;
-      
-      pushInstruction(97,r2_code,c_code,0);
+      unsigned int r1_code = parseRegister(operands[0]);
+      unsigned int r2_code = parseRegister(operands[1]);
+      r2_code = (r2_code<<4) & 0xF0;
+      r2_code+=(r1_code & 0x0F);
+
+      pushInstruction(97,r2_code,0,0);
     }
     else if (instruction == "or"){
       //2 reg , r1 = r1|r2
-      int r1_code = parseRegister(operands[0]);
-      int r2_code = parseRegister(operands[1]);
-      int c_code = r2_code<<4;
-      r2_code = r2_code<<4;
-      r2_code+=r1_code;
+      unsigned int r1_code = parseRegister(operands[0]);
+      unsigned int r2_code = parseRegister(operands[1]);
+      r2_code = (r2_code<<4) & 0xF0;
+      r2_code+=(r1_code & 0x0F);
 
-      pushInstruction(98,r2_code,c_code,0);
+      pushInstruction(98,r2_code,0,0);
     }
     else if (instruction == "xor"){
       //2 reg, r1 = r1^r2
-      int r1_code = parseRegister(operands[0]);
-      int r2_code = parseRegister(operands[1]);
-      int c_code = r2_code<<4;
-      r2_code = r2_code<<4;
-      r2_code+=r1_code;
+      unsigned int r1_code = parseRegister(operands[0]);
+      unsigned int r2_code = parseRegister(operands[1]);
+      r2_code = (r2_code<<4) & 0xF0;
+      r2_code+=(r1_code & 0x0F);
 
-      pushInstruction(99,r2_code,c_code,0);
+      pushInstruction(99,r2_code,0,0);
     }
     else if (instruction == "shl"){
       //2 registra
@@ -468,7 +465,7 @@ void Assembler::addLine(Line& line){
           loadOperandToRegister(0,op,instruction);
         }
         else if (instruction == "st"){
-          pushInstruction(130,0,reg_code<<4,0);
+          pushInstruction(128,0,reg_code<<4,0);
           debug_instructions[current_section].push_back(instruction);
           location_counter+=4;
           loadOperandToRegister(0,op,instruction);
