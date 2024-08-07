@@ -24,8 +24,10 @@ void Emulator::beginExec(bool debug){
   while(!halt){
     if (debug){
       std::cin.get();
+      std::cout<<"INSTRUKCIJA: "<<(unsigned int)instruction<<std::endl;
+      printRegisters();
     }
-    std::cout<<"INSTRUKCIJA: "<<(unsigned int)instruction<<std::endl;
+    
     unsigned int reg_a = (bytes[1] & 0xF0)>>4;
     unsigned int reg_b = bytes[1] & 0x0F;
     unsigned int reg_c = (bytes[2] & 0xF0)>>4;
@@ -33,8 +35,8 @@ void Emulator::beginExec(bool debug){
     unsigned int offset =((((unsigned int) bytes[2]) & 15)<<8) + ((unsigned int) bytes[3]);
     
 
-    std::cout<<"Reg A: "<<reg_a<<" Reg B: "<<reg_b <<" Reg C: "<<reg_c<<" Offset: "<<offset<<std::endl;
-    printRegisters();
+    
+    
     unsigned int temp;
     unsigned int final_address;
     unsigned int address;
@@ -58,15 +60,15 @@ void Emulator::beginExec(bool debug){
         cause = 4;
         status = status & (~0x1);
         regs[15] = handler;
-        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
+        //std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
       
       case 32:
         //call direkt i call mem
-        std::cout<<"Izvrsen call"<<std::endl;
+        //std::cout<<"Izvrsen call"<<std::endl;
         address = getOperand();
         push(regs[15]);
-        std::cout<<"32 "<<regs[15]<<std::endl;
+        //std::cout<<"32 "<<regs[15]<<std::endl;
         if (instruction == 32){
           regs[15] = address;
         }
@@ -75,32 +77,32 @@ void Emulator::beginExec(bool debug){
           regs[15] = mem[regs[reg_a] + regs[reg_b] + offset];
         } mislim da ovo nemamo
         */
-        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
+        //std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
 
       case 48://jmp
         address = getOperand();
         regs[15] = address;
-        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
+        //std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
       
       case 49:
         address = getOperand();
         if (regs[reg_b] == regs[reg_c])regs[15] = address;
         
-        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
+        //std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
       
       case 50:
         address = getOperand();
         if (regs[reg_b] != regs[reg_c])regs[15] = address;
-        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
+        //std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
       
       case 51:
         address = getOperand();
         if (regs[reg_b] > regs[reg_c])regs[15] = address;
-        std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
+        //std::cout<<"Izvrsen skok na "<<regs[15]<<std::endl;
         break;
       /*
       case 56:
@@ -190,14 +192,14 @@ void Emulator::beginExec(bool debug){
           address = getOperand();
           for (int i=0;i<4;i++){
             mem[address+i] = temp_bytes[i];
-            std::cout<<"Na adresu "<<address+i<<" upisano: "<<(unsigned int)temp_bytes[i]<<std::endl;
+            //std::cout<<"Na adresu "<<address+i<<" upisano: "<<(unsigned int)temp_bytes[i]<<std::endl;
           }
         }
         else{
           address = regs[reg_b] + offset;
           for (int i=0;i<4;i++){
             mem[address+i] = temp_bytes[i];
-            std::cout<<"Na adresu "<<address+i<<" upisano: "<<(unsigned int)temp_bytes[i]<<std::endl;
+            //std::cout<<"Na adresu "<<address+i<<" upisano: "<<(unsigned int)temp_bytes[i]<<std::endl;
           }
         }
         
@@ -240,7 +242,7 @@ void Emulator::beginExec(bool debug){
       case 129:
         if (reg_b == 15){
           push(regs[reg_b]);
-          std::cout<<"pushed pc: "<<regs[reg_b]<<std::endl;
+          //std::cout<<"pushed pc: "<<regs[reg_b]<<std::endl;
         }
         else{
           push(regs[reg_b]);
@@ -286,7 +288,7 @@ void Emulator::beginExec(bool debug){
           regs[reg_a] = 0;
           for (int i=3;i>=0;i--){
             temp = mem[regs[reg_b]-i+3 + address];
-            std::cout<<"Sa adrese "<<regs[reg_b]-i+3 + address<<" procitano: "<<temp<<std::endl;
+            //std::cout<<"Sa adrese "<<regs[reg_b]-i+3 + address<<" procitano: "<<temp<<std::endl;
             temp = temp<<(i*8);
             regs[reg_a]+=temp;
           }
@@ -404,7 +406,7 @@ void Emulator::beginExec(bool debug){
       instruction = bytes[0];
     }
     else{
-      std::cout<<"Emulated processor executed halt instgruction"<<std::endl;
+      std::cout<<"Emulated processor executed halt instruction"<<std::endl;
       std::cout<<"Emulated processor state: "<<std::endl;
 
       printRegisters();
@@ -529,7 +531,7 @@ void Emulator::printRegisters(){
 }
 
 unsigned int Emulator::getOperand(){
-  std::cout<<"CITAMO OPERAND SA: "<<regs[15]<<std::endl;
+  //std::cout<<"CITAMO OPERAND SA: "<<regs[15]<<std::endl;
   unsigned int ret = 0;
   unsigned int temp;
   //std::cout<<"citamo operand sa adrese: "<<regs[15]<<" i sledece 3"<<std::endl;
@@ -541,6 +543,6 @@ unsigned int Emulator::getOperand(){
     //std::cout<<"RET:  "<<ret<<std::endl;
   }
   regs[15]+=4;
-  std::cout<<"OPERAND: "<<ret<<std::endl;
+  //std::cout<<"OPERAND: "<<ret<<std::endl;
   return ret;
 }
